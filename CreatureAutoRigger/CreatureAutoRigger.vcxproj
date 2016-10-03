@@ -64,7 +64,7 @@
       <BufferSecurityCheck>true</BufferSecurityCheck>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <AdditionalIncludeDirectories>.;C:\Program Files\Autodesk\Maya2016\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PrecompiledHeaderOutputFile>$(Configuration)\MSkeletonizer.pch</PrecompiledHeaderOutputFile>
+      <PrecompiledHeaderOutputFile>$(Configuration)\CreatureAutoRigger.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -74,8 +74,8 @@
       <AdditionalDependencies>Foundation.lib;OpenMaya.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\Program Files\Autodesk\Maya2016\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <OutputFile>$(Configuration)\CreatureAutoRigger.mll</OutputFile>
-      <ImportLibrary>$(Configuration)\MSkeletonizer.lib</ImportLibrary>
-      <ProgramDatabaseFile>$(Configuration)\MSkeletonizer.pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(Configuration)\CreatureAutoRigger.lib</ImportLibrary>
+      <ProgramDatabaseFile>$(Configuration)\CreatureAutoRigger.pdb</ProgramDatabaseFile>
     </Link>
   </ItemDefinitionGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -100,7 +100,7 @@
       <BufferSecurityCheck>true</BufferSecurityCheck>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
       <AdditionalIncludeDirectories>.;C:\Program Files\Autodesk\Maya2016\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PrecompiledHeaderOutputFile>$(Configuration)\MSkeletonizer.pch</PrecompiledHeaderOutputFile>
+      <PrecompiledHeaderOutputFile>$(Configuration)\CreatureAutoRigger.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -112,8 +112,8 @@
       <AdditionalDependencies>Foundation.lib;OpenMaya.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\Program Files\Autodesk\Maya2016\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <OutputFile>$(Configuration)\CreatureAutoRigger.mll</OutputFile>
-      <ImportLibrary>$(Configuration)\MSkeletonizer.lib</ImportLibrary>
-      <ProgramDatabaseFile>$(Configuration)\MSkeletonizer.pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(Configuration)\CreatureAutoRigger.lib</ImportLibrary>
+      <ProgramDatabaseFile>$(Configuration)\CreatureAutoRigger.pdb</ProgramDatabaseFile>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
