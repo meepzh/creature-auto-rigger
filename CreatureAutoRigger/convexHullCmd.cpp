@@ -53,8 +53,8 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
   
   // Check iterator
   if (MZH::hasError(*status, "Failed to create vertex iterator")) return;
-  if (vertexIt.isDone()) {
-    displayError("No vertices in object");
+  if (vertexIt.isDone() || vertexIt.count() < 4) {
+    displayError("Not enough vertices in object");
     return;
   }
 
