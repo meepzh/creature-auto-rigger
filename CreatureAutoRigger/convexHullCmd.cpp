@@ -5,6 +5,7 @@
 #include <maya/MFloatPointArray.h>
 #include <maya/MFnMesh.h>
 #include <maya/MFnMeshData.h>
+#include <maya/MFnSet.h>
 #include <maya/MGlobal.h>
 #include <maya/MItMeshVertex.h>
 #include <maya/MItSelectionList.h>
@@ -51,10 +52,7 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
   MItMeshVertex vertexIt(dagPath, MObject::kNullObj, status);
   
   // Check iterator
-  if (*status != MS::kSuccess) {
-    displayError("Failed to create vertex iterator");
-    return;
-  }
+  if (MZH::hasError(*status, "Failed to create vertex iterator")) return;
   if (vertexIt.isDone()) {
     displayError("No vertices in object");
     return;
@@ -87,8 +85,8 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
 
   // Found extremes
   for (unsigned int i = 0; i < 3; ++i) {
-    displayInfo(MString("Found minimum ") + i + ": " + toS(extremes[i][0]));
-    displayInfo(MString("Found maximum ") + i + ": " + toS(extremes[i][1]));
+    displayInfo(MString("Found minimum ") + i + ": " + MZH::toS(extremes[i][0]));
+    displayInfo(MString("Found maximum ") + i + ": " + MZH::toS(extremes[i][1]));
   }
 
   std::vector<bool> usedPoints(vertexIt.count(), false);
@@ -110,7 +108,9 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
       }
     }
   }
-  displayInfo("Longest pair from " + toS(*longestA) + " to " + toS(*longestB) + " with distance " + longestDistance);
+  displayInfo("Longest pair from "
+    + MZH::toS(*longestA) + " to " + MZH::toS(*longestB)
+    + " with distance " + longestDistance);
 
   // Mark used indices
   for (unsigned int i = 0; i < 6; ++i) {
@@ -135,17 +135,13 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
       furthestPoint = point;
     }
   }
-  displayInfo("Found furthest point " + toS(furthestPoint) + " with distance " + longestDistance);
+  displayInfo("Found furthest point " + MZH::toS(furthestPoint) + " with distance " + longestDistance);
 
   // Populate vertex array
   MFloatPointArray vertexArray;
-  MFloatPoint floatPoint;
-  floatPoint.setCast(*longestA);
-  vertexArray.append(floatPoint);
-  floatPoint.setCast(*longestB);
-  vertexArray.append(floatPoint);
-  floatPoint.setCast(furthestPoint);
-  vertexArray.append(floatPoint);
+  vertexArray.append(MZH::toFP(*longestA));
+  vertexArray.append(MZH::toFP(*longestB));
+  vertexArray.append(MZH::toFP(furthestPoint));
 
   // Populate polygon arrays
   MIntArray polygonCounts(1, 3);
@@ -159,10 +155,12 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
   MObject meshDataWrapper = meshDataFn.create();
   MFnMesh meshFn;
   MObject transformObj = meshFn.create(3, 1, vertexArray, polygonCounts, polygonConnects, MObject::kNullObj, status);
-  if (*status != MS::kSuccess) {
-    displayError("Could not create mesh object");
-    return;
-  }
+  if (MZH::hasError(*status, "Failed to create convex hull mesh")) return;
+  //renameNodes()
+
+  // Set initial shading
+  MFnSet setFn;
+  //assignShadingGroup
 }
 
 double convexHullCmd::perpDistance(const MPoint &testPt, const MPoint &linePtA, const MPoint &linePtB) {

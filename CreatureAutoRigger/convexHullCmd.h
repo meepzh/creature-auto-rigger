@@ -2,6 +2,7 @@
 
 #include <maya/MArgList.h>
 #include <maya/MDagPath.h>
+#include <maya/MDGModifier.h>
 #include <maya/MPxCommand.h>
 
 class convexHullCmd : public MPxCommand {
@@ -12,4 +13,7 @@ public:
 protected:
   void computeHull(MDagPath dagPath, MStatus *status);
   static double perpDistance(const MPoint &testPt, const MPoint &linePtA, const MPoint &linePtB);
+
+private:
+  MDGModifier dgModifier;
 };
