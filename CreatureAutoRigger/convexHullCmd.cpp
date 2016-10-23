@@ -2,13 +2,13 @@
 
 #include <limits>
 #include <vector>
-#include <maya/MFloatPointArray.h>
 #include <maya/MFnMesh.h>
 #include <maya/MFnMeshData.h>
 #include <maya/MFnSet.h>
 #include <maya/MGlobal.h>
 #include <maya/MItMeshVertex.h>
 #include <maya/MItSelectionList.h>
+#include <maya/MPointArray.h>
 #include <maya/MSelectionList.h>
 
 #include "utils.h"
@@ -49,12 +49,16 @@ void *convexHullCmd::creator() {
 }
 
 void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
-  MItMeshVertex vertexIt(dagPath, MObject::kNullObj, status);
+  MFnMesh target(dagPath, status);
+  if (MZH::hasError(*status, "Failed to get mesh")) return;
+
+  MPointArray targetPoints;
+  *status = target.getPoints(targetPoints, MSpace::kWorld);
+  if (MZH::hasError(*status, "Failed to get mesh points")) return;
   
-  // Check iterator
-  if (MZH::hasError(*status, "Failed to create vertex iterator")) return;
-  if (vertexIt.isDone() || vertexIt.count() < 4) {
-    displayError("Not enough vertices in object");
+  // Check point array
+  if (targetPoints.length() < 4) {
+    displayError("Not enough vertices in mesh");
     return;
   }
 
@@ -67,18 +71,17 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
   }
   
   // Find axial extremes
-  MPoint point;
-  for (; !vertexIt.isDone(); vertexIt.next()) {
-    point = vertexIt.position(MSpace::kWorld, status);
+  for (unsigned int i = 0; i < targetPoints.length(); ++i) {
+    const MPoint &point = targetPoints[i];
 
     for (unsigned int i = 0; i < 3; ++i) {
       if (point[i] < extremes[i][0][i]) {
         extremes[i][0] = point;
-        extremesIndices[i][0] = vertexIt.index();
+        extremesIndices[i][0] = i;
       }
       if (point[i] > extremes[i][1][i]) {
         extremes[i][1] = point;
-        extremesIndices[i][1] = vertexIt.index();
+        extremesIndices[i][1] = i;
       }
     }
   }
@@ -89,18 +92,17 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
     displayInfo(MString("Found maximum ") + i + ": " + MZH::toS(extremes[i][1]));
   }
 
-  std::vector<bool> usedPoints(vertexIt.count(), false);
+  std::vector<bool> usedPoints(targetPoints.length(), false);
 
   // Find longest pair
   MPoint *longestA = nullptr;
   MPoint *longestB = nullptr;
   double longestDistance = -1.0;
-  double distance;
   for (unsigned int i = 0; i < 6; ++i) {
     for (unsigned int j = i + 1; j < 6; ++j) {
       MPoint *tempA = &extremes[i / 2][i % 2];
       MPoint *tempB = &extremes[j / 2][j % 2];
-      distance = tempA->distanceTo(*tempB);
+      double distance = tempA->distanceTo(*tempB);
       if (distance > longestDistance) {
         longestA = tempA;
         longestB = tempB;
@@ -122,15 +124,14 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
   }
 
   // Find furthest point from line
-  vertexIt.reset();
   longestDistance = -1.0;
   int pointIndex = -1;
   MPoint furthestPoint;
-  for (; !vertexIt.isDone(); vertexIt.next()) {
-    point = vertexIt.position(MSpace::kWorld, status);
-    distance = perpDistance(point, *longestA, *longestB);
+  for (unsigned int i = 0; i < targetPoints.length(); ++i) {
+    const MPoint &point = targetPoints[i];
+    const double distance = perpDistance(point, *longestA, *longestB);
     if (distance > longestDistance) {
-      pointIndex = vertexIt.index();
+      pointIndex = i;
       longestDistance = distance;
       furthestPoint = point;
     }
@@ -138,10 +139,10 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
   displayInfo("Found furthest point " + MZH::toS(furthestPoint) + " with distance " + longestDistance);
 
   // Populate vertex array
-  MFloatPointArray vertexArray;
-  vertexArray.append(MZH::toFP(*longestA));
-  vertexArray.append(MZH::toFP(*longestB));
-  vertexArray.append(MZH::toFP(furthestPoint));
+  MPointArray vertexArray;
+  vertexArray.append(*longestA);
+  vertexArray.append(*longestB);
+  vertexArray.append(furthestPoint);
 
   // Populate polygon arrays
   MIntArray polygonCounts(1, 3);
