@@ -151,16 +151,22 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
   polygonConnects.append(2);
 
   // Create mesh
-  MFnMeshData meshDataFn;
-  MObject meshDataWrapper = meshDataFn.create();
-  MFnMesh meshFn;
-  MObject transformObj = meshFn.create(3, 1, vertexArray, polygonCounts, polygonConnects, MObject::kNullObj, status);
+  MObject meshDataWrapper = MFnMeshData().create();
+  MObject transform = MFnMesh().create(3, 1, vertexArray, polygonCounts, polygonConnects, MObject::kNullObj, status);
   if (MZH::hasError(*status, "Failed to create convex hull mesh")) return;
-  //renameNodes()
+
+  // Rename mesh
+  *status = dgModifier.renameNode(transform, "convexHull#");
+  if (MZH::hasError(*status, "Failed to add convex hull rename to DGModifier")) return;
+  *status = dgModifier.doIt();
+  if (MZH::hasError(*status, "Failed to rename the convex hull transform node")) return;
 
   // Set initial shading
-  MFnSet setFn;
-  //assignShadingGroup
+  *status = MZH::setShadingGroup(dgModifier, transform, "initialShadingGroup");
+  if (MZH::hasError(*status, "Failed to add shading group change to convex hull mesh")) return;
+  *status = dgModifier.doIt();
+  if (MZH::hasError(*status, "Failed to set the shading group of the convex hull mesh")) return;
+
 }
 
 double convexHullCmd::perpDistance(const MPoint &testPt, const MPoint &linePtA, const MPoint &linePtB) {

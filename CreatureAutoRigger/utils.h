@@ -1,33 +1,18 @@
 #pragma once
 
 #include <maya/MFloatPoint.h>
+#include <maya/MDGModifier.h>
 #include <maya/MPoint.h>
-#include <maya/MPxCommand.h>
 #include <maya/MString.h>
 
 namespace MZH {
-  bool hasError(const MStatus &status, const char *message) {
-    if (status != MS::kSuccess) {
-      MPxCommand::displayError(MString(message) + ": " + status.errorString());
-      return true;
-    }
-    return false;
-  }
-
-  MFloatPoint toFP(const MPoint &point) {
-    MFloatPoint fp;
-    fp.setCast(point);
-    return fp;
-  }
-
-  MString toS(const MPoint &point) {
-    MString result = "(";
-    result += point[0];
-    result += ", ";
-    result += point[1];
-    result += ", ";
-    result += point[2];
-    result += ")";
-    return result;
-  }
+  // Returns true if status is not MS::kSuccess.
+  // Prints message on error. Only works for MPxCommand.
+  bool hasError(const MStatus &status, const char *message);
+  // Sets a transform node's mesh to use shading group group.
+  MStatus setShadingGroup(MDGModifier &dgModifier, MObject transform, MString group);
+  // Converts a MPoint to a MFloatPoint
+  MFloatPoint toFP(const MPoint &point);
+  // Returns a human-readable version of point
+  MString toS(const MPoint &point);
 };

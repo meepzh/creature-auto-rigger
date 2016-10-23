@@ -17,6 +17,7 @@
   <ItemGroup>
     <ClCompile Include="convexHullCmd.cpp" />
     <ClCompile Include="pluginMain.cpp" />
+    <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="convexHullCmd.h" />
@@ -82,6 +83,9 @@
       <ImportLibrary>$(Configuration)\CreatureAutoRigger.lib</ImportLibrary>
       <ProgramDatabaseFile>$(Configuration)\CreatureAutoRigger.pdb</ProgramDatabaseFile>
     </Link>
+    <PostBuildEvent>
+      <Command>copy "$(TargetPath)" "$(USERPROFILE)\Documents\maya\2016\plug-ins"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
