@@ -1,7 +1,7 @@
 #include "convexHullCmd.h"
 
 #include <limits>
-#include <vector>
+#include <numeric>
 #include <maya/MFnMesh.h>
 #include <maya/MFnMeshData.h>
 #include <maya/MFnSet.h>
@@ -28,10 +28,10 @@ MStatus convexHullCmd::doIt(const MArgList& args) {
     
     if (dagPath.node().hasFn(MFn::kMesh)) {
       selectedMesh = true;
-      computeHull(dagPath, &status);
+      createConvexHull(dagPath, &status);
     } else if (dagPath.node().hasFn(MFn::kTransform) && dagPath.hasFn(MFn::kMesh)) {
       selectedMesh = true;
-      computeHull(dagPath, &status);
+      createConvexHull(dagPath, &status);
     }
   }
 
@@ -48,10 +48,10 @@ void *convexHullCmd::creator() {
   return new convexHullCmd;
 }
 
-void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
+void convexHullCmd::createConvexHull(MDagPath dagPath, MStatus *status) {
+  // Get target's points
   MFnMesh target(dagPath, status);
   if (MZH::hasError(*status, "Failed to get mesh")) return;
-
   MPointArray targetPoints;
   *status = target.getPoints(targetPoints, MSpace::kWorld);
   if (MZH::hasError(*status, "Failed to get mesh points")) return;
@@ -61,6 +61,10 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
     displayError("Not enough vertices in mesh");
     return;
   }
+
+  // Initialize useable point indices array
+  std::list<unsigned int> useablePoints(targetPoints.length());
+  std::iota(useablePoints.begin(), useablePoints.end(), 0);
 
   // Initialize extremes
   MPoint extremes[3][2];
@@ -92,8 +96,6 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
     displayInfo(MString("Found maximum ") + i + ": " + MZH::toS(extremes[i][1]));
   }
 
-  std::vector<bool> usedPoints(targetPoints.length(), false);
-
   // Find longest pair
   MPoint *longestA = nullptr;
   MPoint *longestB = nullptr;
@@ -117,9 +119,9 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
   // Mark used indices
   for (unsigned int i = 0; i < 6; ++i) {
     if (longestA == &extremes[i / 2][i % 2]) {
-      usedPoints.at(extremesIndices[i / 2][i % 2]) = true;
+      //usedPoints.at(extremesIndices[i / 2][i % 2]) = true;
     } else if (longestB == &extremes[i / 2][i % 2]) {
-      usedPoints.at(extremesIndices[i / 2][i % 2]) = true;
+      //usedPoints.at(extremesIndices[i / 2][i % 2]) = true;
     }
   }
 
@@ -167,6 +169,12 @@ void convexHullCmd::computeHull(MDagPath dagPath, MStatus *status) {
   if (MZH::hasError(*status, "Failed to add shading group change to convex hull mesh")) return;
   *status = dgModifier.doIt();
   if (MZH::hasError(*status, "Failed to set the shading group of the convex hull mesh")) return;
+
+  outputDagPaths.append(MDagPath::getAPathTo(transform, status));
+  if (MZH::hasError(*status, "Failed to get a DAG path to the convex hull mesh")) return;
+}
+
+void convexHullCmd::createBaseHull(const MPointArray &points, std::list<unsigned int> &useablePoints, MStatus *status) {
 
 }
 

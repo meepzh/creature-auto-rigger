@@ -1,7 +1,9 @@
 #pragma once
 
+#include <list>
 #include <maya/MArgList.h>
 #include <maya/MDagPath.h>
+#include <maya/MDagPathArray.h>
 #include <maya/MDGModifier.h>
 #include <maya/MPxCommand.h>
 
@@ -15,10 +17,13 @@ public:
 
 protected:
   // Computes and creates a mesh representing the convex hull of the mesh associated with dagPath
-  void computeHull(MDagPath dagPath, MStatus *status);
+  void createConvexHull(MDagPath dagPath, MStatus *status);
+  // Creates the initial tetrahedron from the most extreme points
+  void createBaseHull(const MPointArray &points, std::list<unsigned int> &useablePoints, MStatus *status);
   // Returns the shortest distance between testPt and the line represented by linePtA and linePtB
   static double perpDistance(const MPoint &testPt, const MPoint &linePtA, const MPoint &linePtB);
 
 private:
   MDGModifier dgModifier;
+  MDagPathArray outputDagPaths;
 };
