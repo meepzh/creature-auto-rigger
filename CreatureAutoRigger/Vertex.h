@@ -8,12 +8,12 @@ class Vertex {
 public:
   Vertex(const MPoint &point);
   
-  const Face *face() const;
+  Face *face();
   const MPoint &point() const;
 
-  void setFace(const Face *face);
+  void setFace(Face *face);
 
 private:
-  const Face *face_;
+  Face *face_;
   const MPoint point_;
 };

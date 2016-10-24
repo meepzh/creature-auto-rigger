@@ -46,6 +46,25 @@ void QuickHull::mayaExport(int &numVertices, int &numPolygons, MPointArray &vert
   }
 }
 
+void QuickHull::addNewFaces(Vertex *eyeVertex) {
+  newFaces_.clear();
+
+
+}
+
+void QuickHull::addVertexToHull(Vertex *eyeVertex) {
+  MPxCommand::displayInfo("Adding point " + MZH::toS(eyeVertex->point())
+    + " at height " + eyeVertex->face()->pointPlaneDistance(eyeVertex->point()));
+
+  horizon_.clear();
+  unclaimed_.clear();
+
+  removeVertexFromFace(eyeVertex, eyeVertex->face());
+  computeHorizon(eyeVertex->point(), nullptr, eyeVertex->face());
+
+  MPxCommand::displayInfo("Horizon size " + MZH::toS(horizon_.size()));
+}
+
 void QuickHull::buildHull() {
   buildSimplexHull();
 
@@ -53,6 +72,7 @@ void QuickHull::buildHull() {
   unsigned int iterations = 0;
   /*while (eyeVertex = nextVertexToAdd()) {
     ++iterations;
+    addVertexToHull(eyeVertex);
   }*/
 
   MPxCommand::displayInfo("Completed with " + MZH::toS(iterations) + " iterations");
@@ -154,6 +174,33 @@ void QuickHull::buildSimplexHull() {
   }
 }
 
+void QuickHull::computeHorizon(const MPoint &eyePoint, HalfEdge *crossedEdge, Face *face) {
+  deleteFaceVertices(face);
+  face->flag = Face::Flag::DELETED;
+  HalfEdge *edge;
+
+  if (crossedEdge == nullptr) {
+    crossedEdge = face->edge();
+    edge = crossedEdge;
+  } else {
+    // crossedEdge already analyzed
+    edge = crossedEdge->next();
+  }
+
+  do {
+    HalfEdge *oppositeEdge = edge->opposite();
+    Face *oppositeFace = oppositeEdge->face();
+    if (oppositeFace->flag == Face::Flag::VISIBLE) {
+      if  (oppositeFace->pointPlaneDistance(eyePoint)) {
+        computeHorizon(eyePoint, oppositeEdge, oppositeFace);
+      } else {
+        horizon_.push_back(edge);
+      }
+    }
+    edge = edge->next();
+  } while (edge != crossedEdge);
+}
+
 MStatus QuickHull::computeMinMax(Vertex *&v0, Vertex *&v1) {
   MStatus status;
 
@@ -220,6 +267,10 @@ MStatus QuickHull::computeMinMax(Vertex *&v0, Vertex *&v1) {
   return status;
 }
 
+void QuickHull::deleteFaceVertices(Face *face, Face *absorbingFace) {
+
+}
+
 void QuickHull::initBuffers(unsigned int numPoints) {
   pointBuffer_.reserve(numPoints);
   faces_.clear();
@@ -259,4 +310,24 @@ void QuickHull::addVertexToFace(Vertex *vertex, Face *face) {
     claimed_.push_back(vertex);
     face->setOutside(--claimed_.end());
   }
+}
+
+void QuickHull::removeVertexFromFace(Vertex *vertex, Face *face) {
+  auto vertexIt = face->outside();
+  if (vertex == *vertexIt) {
+    vertexIt = claimed_.erase(vertexIt);
+    if (vertexIt == claimed_.end()) {
+      face->clearOutside();
+    } else {
+      face->setOutside(vertexIt);
+    }
+  } else {
+    // Find vertex iterator
+    for (; vertexIt != claimed_.end() && (*vertexIt)->face() == face; ++vertexIt) {
+      if (*vertexIt == vertex) {
+        claimed_.erase(vertexIt);
+        continue;
+      }
+    } //end-for
+  } //end-if
 }

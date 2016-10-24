@@ -1,7 +1,8 @@
 #include "Face.h"
 
 Face::Face()
-    : area_(0), edge_(nullptr), hasOutside_(false), numVertices_(0), planeOffset_(0) {
+  : area_(0), edge_(nullptr), hasOutside_(false),
+    numVertices_(0), planeOffset_(0), flag(Flag::VISIBLE) {
 }
 
 Face::~Face() {
@@ -99,6 +100,10 @@ HalfEdge *Face::edge(int i) {
 
 void Face::setEdge(std::shared_ptr<HalfEdge> &edge) {
   edge_ = edge;
+}
+
+void Face::clearOutside() {
+  hasOutside_ = false;
 }
 
 bool Face::hasOutside() const {

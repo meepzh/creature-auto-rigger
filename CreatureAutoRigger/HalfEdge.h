@@ -9,6 +9,7 @@ class HalfEdge {
 public:
   HalfEdge(Vertex *vertex, Face *face);
   
+  Face *face();
   double length() const;
   Vertex *vertex() const;
 

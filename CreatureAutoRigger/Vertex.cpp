@@ -4,7 +4,7 @@ Vertex::Vertex(const MPoint &point)
     : face_(nullptr), point_(point) {
 }
 
-const Face *Vertex::face() const {
+Face *Vertex::face() {
   return face_;
 }
 
@@ -12,6 +12,6 @@ const MPoint &Vertex::point() const {
   return point_;
 }
 
-void Vertex::setFace(const Face *face) {
+void Vertex::setFace(Face *face) {
   face_ = face;
 }

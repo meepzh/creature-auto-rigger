@@ -12,6 +12,8 @@ public:
   Face();
   ~Face();
 
+  enum Flag { VISIBLE, NON_CONVEX, DELETED };
+
   void computeCentroid();
   // Computes the normal, area, and number of vertices
   void computeNormal();
@@ -22,9 +24,12 @@ public:
   HalfEdge *edge(int i);
   void setEdge(std::shared_ptr<HalfEdge> &edge);
 
+  void clearOutside();
   bool hasOutside() const;
   std::list<Vertex *>::iterator outside() const;
   void setOutside(std::list<Vertex *>::iterator outside);
+
+  Flag flag;
 
   static std::unique_ptr<Face> createTriangle(Vertex *v0, Vertex *v1, Vertex *v2, double minArea = 0);
 

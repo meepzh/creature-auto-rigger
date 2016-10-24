@@ -5,6 +5,10 @@ HalfEdge::HalfEdge(Vertex *vertex, Face *face)
       next_(nullptr), opposite_(nullptr), prev_(nullptr) {
 }
 
+Face *HalfEdge::face() {
+  return face_;
+}
+
 double HalfEdge::length() const {
   return (vertex_->point() - prev_->vertex()->point()).length();
 }
