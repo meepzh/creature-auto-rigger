@@ -5,7 +5,6 @@
 #include <maya/MVector.h>
 
 #include "HalfEdge.h"
-#include "Vertex.h"
 
 class Face {
 public:
@@ -14,5 +13,5 @@ public:
 private:
   MPoint centroid_;
   MVector normal_;
-  std::list<vertex> verticesOutside_;
+  std::list<Vertex> verticesOutside_;
 };
