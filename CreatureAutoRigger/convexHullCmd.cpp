@@ -63,10 +63,8 @@ void ConvexHullCmd::createConvexHull(MDagPath dagPath, MStatus *status) {
   QuickHull qc(targetPoints);
 
   // Debug vertices
-  unsigned int debugCount = 0;
   for (auto it = qc.debugVertices.begin(); it != qc.debugVertices.end(); ++it) {
-    MZH::createLocator(dgModifier, (*it)->point(), MString("v") + debugCount, false);
-    ++debugCount;
+    MZH::createLocator(dgModifier, (*it)->point(), MString("v#"), false);
   }
 
   // Export from QuickHull

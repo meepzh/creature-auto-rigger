@@ -163,7 +163,7 @@ MStatus QuickHull::computeMinMax(Vertex *&v0, Vertex *&v1) {
       if (vertex.point()[i] < extremes[i][0]->point()[i]) {
         extremes[i][0] = &vertex;
       }
-      if (vertex.point()[i] < extremes[i][1]->point()[i]) {
+      if (vertex.point()[i] > extremes[i][1]->point()[i]) {
         extremes[i][1] = &vertex;
       }
     }

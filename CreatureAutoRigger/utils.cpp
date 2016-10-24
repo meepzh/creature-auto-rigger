@@ -23,7 +23,7 @@ namespace MZH {
     cmd += " ";
 
     // Name
-    cmd += "-n " + name + " ";
+    cmd += "-n \"" + name + "\" ";
 
     // Relative
     if (relative) cmd += "-r ";
@@ -51,7 +51,7 @@ namespace MZH {
 
     // Generate the command
     MString cmd("sets -e -forceElement ");
-    cmd += group + " " + dagNodeFn.name();
+    cmd += group + " \"" + dagNodeFn.name() + "\"";
     
     // Execute the command
     status = dgModifier.commandToExecute(cmd);
