@@ -32,8 +32,8 @@ void QuickHull::mayaExport(int &numVertices, int &numPolygons, MPointArray &vert
   polygonCounts.clear();
   polygonConnects.clear();
 
-  for (auto faceIt = faces_.begin(); faceIt != faces_.end(); ++faceIt) {
-    HalfEdge *faceEdge = (*faceIt)->edge();
+  for (std::unique_ptr<Face> &face : faces_) {
+    HalfEdge *faceEdge = face->edge();
     HalfEdge *curEdge = faceEdge;
     int polygonCount = 0;
     do {
@@ -62,7 +62,7 @@ void QuickHull::addVertexToHull(Vertex *eyeVertex) {
   removeVertexFromFace(eyeVertex, eyeVertex->face());
   computeHorizon(eyeVertex->point(), nullptr, eyeVertex->face());
 
-  MPxCommand::displayInfo("Horizon size " + MZH::toS(horizon_.size()));
+  MPxCommand::displayInfo("Horizon size " + MZH::toS<unsigned int>((unsigned int) horizon_.size()));
 }
 
 void QuickHull::buildHull() {
@@ -80,55 +80,53 @@ void QuickHull::buildHull() {
 
 void QuickHull::buildSimplexHull() {
   // Init vars
-  Vertex *vertices[4];
+  Vertex *initialVertices[4];
   double maxDistance;
 
   for (unsigned int i = 0; i < 4; ++i) {
-    vertices[i] = nullptr;
+    initialVertices[i] = nullptr;
   }
 
-  computeMinMax(vertices[0], vertices[1]);
+  computeMinMax(initialVertices[0], initialVertices[1]);
 
   // Find farthest point v2
   maxDistance = -1.0;
-  for (size_t i = 0; i < pointBuffer_.size(); ++i) {
-    Vertex &vertex = pointBuffer_[i];
-    if (&vertex == vertices[0] || &vertex == vertices[1]) continue;
-    const double distance = MZH::pointLineDistance(vertex.point(), vertices[0]->point(), vertices[1]->point());
+  for (Vertex &vertex : vertices_) {
+    if (&vertex == initialVertices[0] || &vertex == initialVertices[1]) continue;
+    const double distance = MZH::pointLineDistance(vertex.point(), initialVertices[0]->point(), initialVertices[1]->point());
     if (distance > maxDistance) {
       maxDistance = distance;
-      vertices[2] = &vertex;
+      initialVertices[2] = &vertex;
     }
   }
-  MPxCommand::displayInfo("Found furthest point v2 " + MZH::toS(vertices[2]->point()) + " with distance " + maxDistance);
+  MPxCommand::displayInfo("Found furthest point v2 " + MZH::toS(initialVertices[2]->point()) + " with distance " + maxDistance);
 
-  MVector v012normal = MZH::unitPlaneNormal(vertices[0]->point(), vertices[1]->point(), vertices[2]->point());
+  MVector v012normal = MZH::unitPlaneNormal(initialVertices[0]->point(), initialVertices[1]->point(), initialVertices[2]->point());
 
   // Find farthest point v3
   maxDistance = -1.0;
-  for (size_t i = 0; i < pointBuffer_.size(); ++i) {
-    Vertex &vertex = pointBuffer_[i];
-    if (&vertex == vertices[0] || &vertex == vertices[1] || &vertex == vertices[2]) continue;
-    const double distance = std::abs(MZH::pointPlaneDistance(vertex.point(), vertices[0]->point(), v012normal));
+  for (Vertex &vertex : vertices_) {
+    if (&vertex == initialVertices[0] || &vertex == initialVertices[1] || &vertex == initialVertices[2]) continue;
+    const double distance = std::abs(MZH::pointPlaneDistance(vertex.point(), initialVertices[0]->point(), v012normal));
     if (distance > maxDistance) {
       maxDistance = distance;
-      vertices[3] = &vertex;
+      initialVertices[3] = &vertex;
     }
   }
-  MPxCommand::displayInfo("Found furthest point v3 " + MZH::toS(vertices[3]->point()) + " with distance " + maxDistance);
+  MPxCommand::displayInfo("Found furthest point v3 " + MZH::toS(initialVertices[3]->point()) + " with distance " + maxDistance);
 
   // Add vertices to debug vector
   for (unsigned int i = 0; i < 4; ++i) {
-    debugVertices.push_back(vertices[i]);
+    debugVertices.push_back(initialVertices[i]);
   }
 
   // Generate faces
-  if (MZH::pointPlaneDistance(vertices[3]->point(), vertices[0]->point(), v012normal) < 0) {
+  if (MZH::pointPlaneDistance(initialVertices[3]->point(), initialVertices[0]->point(), v012normal) < 0) {
     // v012plane not facing vertices[3]
-    faces_.emplace_back(Face::createTriangle(vertices[0], vertices[1], vertices[2]));
-    faces_.emplace_back(Face::createTriangle(vertices[3], vertices[1], vertices[0]));
-    faces_.emplace_back(Face::createTriangle(vertices[3], vertices[2], vertices[1]));
-    faces_.emplace_back(Face::createTriangle(vertices[3], vertices[0], vertices[2]));
+    faces_.emplace_back(Face::createTriangle(initialVertices[0], initialVertices[1], initialVertices[2]));
+    faces_.emplace_back(Face::createTriangle(initialVertices[3], initialVertices[1], initialVertices[0]));
+    faces_.emplace_back(Face::createTriangle(initialVertices[3], initialVertices[2], initialVertices[1]));
+    faces_.emplace_back(Face::createTriangle(initialVertices[3], initialVertices[0], initialVertices[2]));
 
     // Set opposite half-edges
     for (size_t i = 0; i < 3; ++i) {
@@ -140,10 +138,10 @@ void QuickHull::buildSimplexHull() {
     }
   } else {
     // v012plane facing vertices[3]
-    faces_.emplace_back(Face::createTriangle(vertices[0], vertices[2], vertices[1]));
-    faces_.emplace_back(Face::createTriangle(vertices[3], vertices[0], vertices[1]));
-    faces_.emplace_back(Face::createTriangle(vertices[3], vertices[1], vertices[2]));
-    faces_.emplace_back(Face::createTriangle(vertices[3], vertices[2], vertices[0]));
+    faces_.emplace_back(Face::createTriangle(initialVertices[0], initialVertices[2], initialVertices[1]));
+    faces_.emplace_back(Face::createTriangle(initialVertices[3], initialVertices[0], initialVertices[1]));
+    faces_.emplace_back(Face::createTriangle(initialVertices[3], initialVertices[1], initialVertices[2]));
+    faces_.emplace_back(Face::createTriangle(initialVertices[3], initialVertices[2], initialVertices[0]));
 
     // Set opposite half-edges
     for (size_t i = 0; i < 3; ++i) {
@@ -156,16 +154,16 @@ void QuickHull::buildSimplexHull() {
   }
 
   // Assign vertices to faces
-  for (size_t i = 0; i < pointBuffer_.size(); ++i) {
-    Vertex &vertex = pointBuffer_[i];
-    if (&vertex == vertices[0] || &vertex == vertices[1] || &vertex == vertices[2] || &vertex == vertices[3]) continue;
+  for (Vertex &vertex : vertices_) {
+    if (&vertex == initialVertices[0] || &vertex == initialVertices[1]
+      || &vertex == initialVertices[2] || &vertex == initialVertices[3]) continue;
     maxDistance = tolerance_;
     Face *maxFace = nullptr;
-    for (auto faceIt = faces_.begin(); faceIt != faces_.end(); ++faceIt) {
-      const double distance = (*faceIt)->pointPlaneDistance(vertex.point());
+    for (std::unique_ptr<Face> &face : faces_) {
+      const double distance = face->pointPlaneDistance(vertex.point());
       if (distance > maxDistance) {
         maxDistance = distance;
-        maxFace = (*faceIt).get();
+        maxFace = face.get();
       }
     }
     if (maxFace) {
@@ -207,13 +205,13 @@ MStatus QuickHull::computeMinMax(Vertex *&v0, Vertex *&v1) {
   // Initialize extremes
   Vertex *extremes[3][2];
   for (unsigned int i = 0; i < 3; ++i) {
-    extremes[i][0] = &pointBuffer_[0];
-    extremes[i][1] = &pointBuffer_[0];
+    extremes[i][0] = &vertices_[0];
+    extremes[i][1] = &vertices_[0];
   }
   
   // Find axial extremes
-  for (size_t i = 0; i < pointBuffer_.size(); ++i) {
-    Vertex &vertex = pointBuffer_[i];
+  for (size_t i = 0; i < vertices_.size(); ++i) {
+    Vertex &vertex = vertices_[i];
     for (unsigned int i = 0; i < 3; ++i) {
       if (vertex.point()[i] < extremes[i][0]->point()[i]) {
         extremes[i][0] = &vertex;
@@ -272,7 +270,7 @@ void QuickHull::deleteFaceVertices(Face *face, Face *absorbingFace) {
 }
 
 void QuickHull::initBuffers(unsigned int numPoints) {
-  pointBuffer_.reserve(numPoints);
+  vertices_.reserve(numPoints);
   faces_.clear();
   claimed_.clear();
 }
@@ -297,7 +295,7 @@ Vertex *QuickHull::nextVertexToAdd() {
 
 void QuickHull::setPoints(const MPointArray &points) {
   for (unsigned int i = 0; i < points.length(); ++i) {
-    pointBuffer_.push_back(Vertex(points[i]));
+    vertices_.push_back(Vertex(points[i]));
   }
 }
 

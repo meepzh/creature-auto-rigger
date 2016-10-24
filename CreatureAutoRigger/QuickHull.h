@@ -31,7 +31,7 @@ protected:
 
   std::vector<std::unique_ptr<Face>> faces_;
   std::vector<HalfEdge *> horizon_;
-  std::vector<Vertex> pointBuffer_;
+  std::vector<Vertex> vertices_;
   double tolerance_;
 
 private:
