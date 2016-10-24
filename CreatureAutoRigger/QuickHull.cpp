@@ -69,10 +69,10 @@ void QuickHull::buildSimplexHull() {
   // Generate faces
   if (MZH::pointPlaneDistance(vertices[3]->point(), vertices[0]->point(), v012normal) < 0) {
     // v012plane not facing vertices[3]
-    faces_.emplace_back(Face::createTriangle(*vertices[0], *vertices[1], *vertices[2]));
-    faces_.emplace_back(Face::createTriangle(*vertices[3], *vertices[1], *vertices[0]));
-    faces_.emplace_back(Face::createTriangle(*vertices[3], *vertices[2], *vertices[1]));
-    faces_.emplace_back(Face::createTriangle(*vertices[3], *vertices[0], *vertices[2]));
+    faces_.emplace_back(Face::createTriangle(vertices[0], vertices[1], vertices[2]));
+    faces_.emplace_back(Face::createTriangle(vertices[3], vertices[1], vertices[0]));
+    faces_.emplace_back(Face::createTriangle(vertices[3], vertices[2], vertices[1]));
+    faces_.emplace_back(Face::createTriangle(vertices[3], vertices[0], vertices[2]));
 
     // Set opposite half-edges
     for (size_t i = 0; i < 3; ++i) {
@@ -84,10 +84,10 @@ void QuickHull::buildSimplexHull() {
     }
   } else {
     // v012plane facing vertices[3]
-    faces_.emplace_back(Face::createTriangle(*vertices[0], *vertices[2], *vertices[1]));
-    faces_.emplace_back(Face::createTriangle(*vertices[3], *vertices[0], *vertices[1]));
-    faces_.emplace_back(Face::createTriangle(*vertices[3], *vertices[1], *vertices[2]));
-    faces_.emplace_back(Face::createTriangle(*vertices[3], *vertices[2], *vertices[0]));
+    faces_.emplace_back(Face::createTriangle(vertices[0], vertices[2], vertices[1]));
+    faces_.emplace_back(Face::createTriangle(vertices[3], vertices[0], vertices[1]));
+    faces_.emplace_back(Face::createTriangle(vertices[3], vertices[1], vertices[2]));
+    faces_.emplace_back(Face::createTriangle(vertices[3], vertices[2], vertices[0]));
 
     // Set opposite half-edges
     for (size_t i = 0; i < 3; ++i) {
@@ -113,7 +113,7 @@ void QuickHull::buildSimplexHull() {
       }
     }
     if (maxFace) {
-      addVertexToFace(vertex, maxFace);
+      addVertexToFace(&vertex, maxFace);
     }
   }
 }
@@ -196,8 +196,8 @@ void QuickHull::setPoints(const MPointArray &points) {
   }
 }
 
-void QuickHull::addVertexToFace(Vertex &vertex, Face *face) {
-  vertex.setFace(face);
+void QuickHull::addVertexToFace(Vertex *vertex, Face *face) {
+  vertex->setFace(face);
   if (face->hasOutside()) {
     claimed_.push_back(vertex);
     face->setOutside(--claimed_.end());

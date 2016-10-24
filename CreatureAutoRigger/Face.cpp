@@ -16,7 +16,7 @@ void Face::computeCentroid() {
   HalfEdge *faceEdge = edge_.get();
   HalfEdge *curEdge = faceEdge;
   do {
-    centroid_ += curEdge->vertex().point();
+    centroid_ += curEdge->vertex()->point();
     curEdge = curEdge->next();
   } while (curEdge != faceEdge);
   centroid_ = centroid_ / (double) numVertices_;
@@ -27,14 +27,14 @@ void Face::computeNormal() {
   HalfEdge *curEdge = faceEdge->next()->next();
 
   MVector v1;
-  MVector v2 = faceEdge->next()->vertex().point() - faceEdge->vertex().point();
+  MVector v2 = faceEdge->next()->vertex()->point() - faceEdge->vertex()->point();
 
   normal_ = MVector::zero;
   numVertices_ = 2;
 
   while (curEdge != faceEdge) {
     v1 = v2;
-    v2 = curEdge->vertex().point() - faceEdge->vertex().point();
+    v2 = curEdge->vertex()->point() - faceEdge->vertex()->point();
     normal_ += v1 ^ v2;
 
     curEdge = curEdge->next();
@@ -66,7 +66,7 @@ void Face::computeNormal(double minArea) {
     } while (curEdge != faceEdge);
 
     // Recompute normal
-    MVector maxVector = curEdge->vertex().point() - curEdge->prev()->vertex().point();
+    MVector maxVector = curEdge->vertex()->point() - curEdge->prev()->vertex()->point();
     maxVector.normalize();
     double maxProjection = normal_ * maxVector;
     normal_ += maxVector * (-maxProjection);

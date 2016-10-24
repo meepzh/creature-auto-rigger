@@ -25,7 +25,7 @@ protected:
   double tolerance_;
 
 private:
-  void addVertexToFace(Vertex &vertex, Face *face);
+  void addVertexToFace(Vertex *vertex, Face *face);
   
-  std::list<Vertex> claimed_;
+  std::list<Vertex *> claimed_;
 };

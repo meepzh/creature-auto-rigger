@@ -23,10 +23,10 @@ public:
   void setEdge(std::shared_ptr<HalfEdge> &edge);
 
   bool hasOutside() const;
-  std::list<Vertex>::iterator outside() const;
-  void setOutside(std::list<Vertex>::iterator outside);
+  std::list<Vertex *>::iterator outside() const;
+  void setOutside(std::list<Vertex *>::iterator outside);
 
-  static std::unique_ptr<Face> createTriangle(const Vertex &v0, const Vertex &v1, const Vertex &v2, double minArea = 0);
+  static std::unique_ptr<Face> createTriangle(Vertex *v0, Vertex *v1, Vertex *v2, double minArea = 0);
 
 private:
   void computeNormalAndCentroid();
@@ -39,5 +39,5 @@ private:
   MVector normal_;
   unsigned int numVertices_;
   double planeOffset_;
-  std::list<Vertex>::iterator outside_;
+  std::list<Vertex *>::iterator outside_;
 };

@@ -1,15 +1,15 @@
 #include "HalfEdge.h"
 
-HalfEdge::HalfEdge(const Vertex &vertex, Face *face)
+HalfEdge::HalfEdge(Vertex *vertex, Face *face)
     : vertex_(vertex), face_(face),
       next_(nullptr), opposite_(nullptr), prev_(nullptr) {
 }
 
 double HalfEdge::length() const {
-  return (vertex_.point() - prev_->vertex().point()).length();
+  return (vertex_->point() - prev_->vertex()->point()).length();
 }
 
-const Vertex &HalfEdge::vertex() const {
+Vertex *HalfEdge::vertex() const {
   return vertex_;
 }
 

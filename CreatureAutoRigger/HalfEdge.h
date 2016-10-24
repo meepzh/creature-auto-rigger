@@ -7,10 +7,10 @@ class Face;
 
 class HalfEdge {
 public:
-  HalfEdge(const Vertex &vertex, Face *face);
+  HalfEdge(Vertex *vertex, Face *face);
   
   double length() const;
-  const Vertex &vertex() const;
+  Vertex *vertex() const;
 
   HalfEdge *next();
   HalfEdge *opposite();
@@ -25,5 +25,5 @@ private:
   std::shared_ptr<HalfEdge> next_;
   HalfEdge *opposite_;
   HalfEdge *prev_;
-  Vertex vertex_;
+  Vertex *vertex_;
 };
