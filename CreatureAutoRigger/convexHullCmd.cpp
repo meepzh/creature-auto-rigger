@@ -37,8 +37,8 @@ MStatus ConvexHullCmd::doIt(const MArgList& args) {
     return MS::kFailure;
   }
 
-  setResult("convexHullCmd command executed!\n");
-  return MS::kSuccess;
+  if (status == MS::kSuccess) setResult("convexHullCmd command executed!\n");
+  return status;
 }
 
 void *ConvexHullCmd::creator() {

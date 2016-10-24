@@ -40,6 +40,7 @@ void QuickHull::mayaExport(int &numVertices, int &numPolygons, MPointArray &vert
       vertexArray.append(curEdge->vertex()->point());
       polygonCount++;
       polygonConnects.append(numVertices++);
+      curEdge = curEdge->next();
     } while (curEdge != faceEdge);
     polygonCounts.append(polygonCount);
   }
@@ -52,7 +53,7 @@ void QuickHull::buildHull() {
 void QuickHull::buildSimplexHull() {
   // Init vars
   Vertex *vertices[4];
-  double maxDistance = -1.0;
+  double maxDistance;
 
   for (unsigned int i = 0; i < 4; ++i) {
     vertices[i] = nullptr;
@@ -61,6 +62,7 @@ void QuickHull::buildSimplexHull() {
   computeMinMax(vertices[0], vertices[1]);
 
   // Find farthest point v2
+  maxDistance = -1.0;
   for (size_t i = 0; i < pointBuffer_.size(); ++i) {
     Vertex &vertex = pointBuffer_[i];
     if (&vertex == vertices[0] || &vertex == vertices[1]) continue;
@@ -75,6 +77,7 @@ void QuickHull::buildSimplexHull() {
   MVector v012normal = MZH::unitPlaneNormal(vertices[0]->point(), vertices[1]->point(), vertices[2]->point());
 
   // Find farthest point v3
+  maxDistance = -1.0;
   for (size_t i = 0; i < pointBuffer_.size(); ++i) {
     Vertex &vertex = pointBuffer_[i];
     if (&vertex == vertices[0] || &vertex == vertices[1] || &vertex == vertices[2]) continue;
@@ -219,10 +222,10 @@ void QuickHull::setPoints(const MPointArray &points) {
 void QuickHull::addVertexToFace(Vertex *vertex, Face *face) {
   vertex->setFace(face);
   if (face->hasOutside()) {
-    claimed_.push_back(vertex);
-    face->setOutside(--claimed_.end());
-  } else {
     claimed_.insert(face->outside(), vertex);
     face->setOutside(--face->outside());
+  } else {
+    claimed_.push_back(vertex);
+    face->setOutside(--claimed_.end());
   }
 }
