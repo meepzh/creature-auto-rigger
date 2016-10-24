@@ -102,19 +102,19 @@ void Face::setEdge(std::shared_ptr<HalfEdge> &edge) {
 }
 
 bool Face::hasOutside() const {
-  return hasOutside;
+  return hasOutside_;
 }
 
-std::list<Vertex>::iterator Face::outside() const {
+std::list<Vertex *>::iterator Face::outside() const {
   return outside_;
 }
 
-void Face::setOutside(std::list<Vertex>::iterator outside) {
+void Face::setOutside(std::list<Vertex *>::iterator outside) {
   hasOutside_ = true;
   outside_ = outside;
 }
 
-std::unique_ptr<Face> Face::createTriangle(const Vertex &v0, const Vertex &v1, const Vertex &v2, double minArea = 0) {
+std::unique_ptr<Face> Face::createTriangle(Vertex *v0, Vertex *v1, Vertex *v2, double minArea) {
   std::unique_ptr<Face> face(new Face);
 
   std::shared_ptr<HalfEdge> e0 = std::make_shared<HalfEdge>(v0, face.get());

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <list>
+#include <maya/MIntArray.h>
 #include <maya/MPointArray.h>
 #include <vector>
 
@@ -12,6 +13,7 @@ public:
   
   // Constructs the convex hull
   MStatus build(const MPointArray &points);
+  void mayaExport(int &numVertices, int &numPolygons, MPointArray &vertexArray, MIntArray &polygonCounts, MIntArray &polygonConnects);
 
 protected:
   void buildHull();

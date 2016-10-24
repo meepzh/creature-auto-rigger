@@ -25,6 +25,26 @@ MStatus QuickHull::build(const MPointArray &points) {
   return MS::kSuccess;
 }
 
+void QuickHull::mayaExport(int &numVertices, int &numPolygons, MPointArray &vertexArray, MIntArray &polygonCounts, MIntArray &polygonConnects) {
+  numVertices = 0;
+  numPolygons = (int) faces_.size();
+  vertexArray.clear();
+  polygonCounts.clear();
+  polygonConnects.clear();
+
+  for (auto faceIt = faces_.begin(); faceIt != faces_.end(); ++faceIt) {
+    HalfEdge *faceEdge = (*faceIt)->edge();
+    HalfEdge *curEdge = faceEdge;
+    int polygonCount = 0;
+    do {
+      vertexArray.append(curEdge->vertex()->point());
+      polygonCount++;
+      polygonConnects.append(numVertices++);
+    } while (curEdge != faceEdge);
+    polygonCounts.append(polygonCount);
+  }
+}
+
 void QuickHull::buildHull() {
   buildSimplexHull();
 }
@@ -78,7 +98,7 @@ void QuickHull::buildSimplexHull() {
     for (size_t i = 0; i < 3; ++i) {
       size_t j = (i + 1) % 3;
       // Link faces_[i] with faces_[0]
-      faces_[i + 1]->edge(2)->setOpposite(faces_[0]->edge(j));
+      faces_[i + 1]->edge(2)->setOpposite(faces_[0]->edge((int) j));
       // Link faces_[i] with faces_[i + 1]
       faces_[i + 1]->edge(1)->setOpposite(faces_[j + 1]->edge(0));
     }
@@ -93,7 +113,7 @@ void QuickHull::buildSimplexHull() {
     for (size_t i = 0; i < 3; ++i) {
       size_t j = (i + 1) % 3;
       // Link faces_[i] with faces_[0]
-      faces_[i + 1]->edge(2)->setOpposite(faces_[0]->edge(3 - i));
+      faces_[i + 1]->edge(2)->setOpposite(faces_[0]->edge((int) (3 - i)));
       // Link faces_[i] with faces_[i + 1]
       faces_[i + 1]->edge(0)->setOpposite(faces_[j + 1]->edge(1));
     }
