@@ -65,12 +65,6 @@ namespace MZH {
     return fp;
   }
 
-  MString toS(double value) {
-    MString result;
-    result += value;
-    return result;
-  }
-
   MString toS(const MPoint &point) {
     MString result = "(";
     result += point[0];

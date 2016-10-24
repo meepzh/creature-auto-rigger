@@ -74,7 +74,7 @@ void Face::computeNormal(double minArea) {
   }
 }
 
-double Face::pointPlaneDistance(const MPoint &pt) {
+double Face::pointPlaneDistance(const MPoint &pt) const {
   return normal_ * pt - planeOffset_;
 }
 

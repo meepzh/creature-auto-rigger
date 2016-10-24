@@ -16,7 +16,7 @@ public:
   // Computes the normal, area, and number of vertices
   void computeNormal();
   void computeNormal(double minArea);
-  double pointPlaneDistance(const MPoint &testPt);
+  double pointPlaneDistance(const MPoint &testPt) const;
 
   HalfEdge *edge();
   HalfEdge *edge(int i);

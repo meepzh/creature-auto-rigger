@@ -22,6 +22,7 @@ protected:
   void buildSimplexHull();
   MStatus computeMinMax(Vertex *&v0, Vertex *&v1);
   void initBuffers(unsigned int numPoints);
+  Vertex *nextVertexToAdd();
   void setPoints(const MPointArray &points);
 
   std::vector<std::unique_ptr<Face>> faces_;

@@ -48,6 +48,14 @@ void QuickHull::mayaExport(int &numVertices, int &numPolygons, MPointArray &vert
 
 void QuickHull::buildHull() {
   buildSimplexHull();
+
+  Vertex *eyeVertex;
+  unsigned int iterations = 0;
+  /*while (eyeVertex = nextVertexToAdd()) {
+    ++iterations;
+  }*/
+
+  MPxCommand::displayInfo("Completed with " + MZH::toS(iterations) + " iterations");
 }
 
 void QuickHull::buildSimplexHull() {
@@ -216,6 +224,24 @@ void QuickHull::initBuffers(unsigned int numPoints) {
   pointBuffer_.reserve(numPoints);
   faces_.clear();
   claimed_.clear();
+}
+
+Vertex *QuickHull::nextVertexToAdd() {
+  if (claimed_.empty()) return nullptr;
+  
+  Vertex *eyeVertex = nullptr;
+  double maxDistance = -1.0;
+  const Face *eyeFace = claimed_.front()->face();
+
+  for (auto vertexIt = eyeFace->outside(); vertexIt != claimed_.end() && (*vertexIt)->face() == eyeFace; ++vertexIt) {
+    const double distance = eyeFace->pointPlaneDistance((*vertexIt)->point());
+    if (distance > maxDistance) {
+      eyeVertex = *vertexIt;
+      maxDistance = distance;
+    }
+  }
+
+  return eyeVertex;
 }
 
 void QuickHull::setPoints(const MPointArray &points) {

@@ -19,8 +19,14 @@ namespace MZH {
   // Converts a MPoint to a MFloatPoint
   MFloatPoint toFP(const MPoint &point);
   
-  // Returns a human-readable version of double
-  MString toS(double value);
   // Returns a human-readable version of point
   MString toS(const MPoint &point);
+
+  // Returns a human-readable version of some standard type
+  template <typename T>
+  MString toS(T value) {
+    MString result;
+    result += value;
+    return result;
+  }
 };
