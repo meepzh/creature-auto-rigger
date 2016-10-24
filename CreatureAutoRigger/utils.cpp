@@ -4,6 +4,36 @@
 #include <maya/MPxCommand.h>
 
 namespace MZH {
+  MStatus createLocator(MDGModifier &dgModifier, const MPoint &position, const MString &name, bool relative) {
+    MStatus status;
+
+    // Generate the command
+    MString cmd("spaceLocator ");
+    
+    // Absolute
+    if (!relative) cmd += "-a ";
+    
+    // Position
+    cmd += "-p ";
+    cmd += position[0];
+    cmd += " ";
+    cmd += position[1];
+    cmd += " ";
+    cmd += position[2];
+    cmd += " ";
+
+    // Name
+    cmd += "-n " + name + " ";
+
+    // Relative
+    if (relative) cmd += "-r ";
+    
+    // Execute the command
+    status = dgModifier.commandToExecute(cmd);
+
+    return status;
+  }
+
   bool hasError(const MStatus &status, const char *message) {
     if (status != MS::kSuccess) {
       MPxCommand::displayError(MString(message) + ": " + status.errorString());

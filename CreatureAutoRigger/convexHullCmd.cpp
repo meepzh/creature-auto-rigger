@@ -62,6 +62,13 @@ void ConvexHullCmd::createConvexHull(MDagPath dagPath, MStatus *status) {
   // Generate convex hull
   QuickHull qc(targetPoints);
 
+  // Debug vertices
+  unsigned int debugCount = 0;
+  for (auto it = qc.debugVertices.begin(); it != qc.debugVertices.end(); ++it) {
+    MZH::createLocator(dgModifier, (*it)->point(), MString("v") + debugCount, false);
+    ++debugCount;
+  }
+
   // Export from QuickHull
   int numVertices = 0;
   int numPolygons = 0;

@@ -15,6 +15,8 @@ public:
   MStatus build(const MPointArray &points);
   void mayaExport(int &numVertices, int &numPolygons, MPointArray &vertexArray, MIntArray &polygonCounts, MIntArray &polygonConnects);
 
+  std::vector<Vertex *> debugVertices;
+
 protected:
   void buildHull();
   void buildSimplexHull();

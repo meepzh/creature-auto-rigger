@@ -89,6 +89,11 @@ void QuickHull::buildSimplexHull() {
   }
   MPxCommand::displayInfo("Found furthest point v3 " + MZH::toS(vertices[3]->point()) + " with distance " + maxDistance);
 
+  // Add vertices to debug vector
+  for (unsigned int i = 0; i < 4; ++i) {
+    debugVertices.push_back(vertices[i]);
+  }
+
   // Generate faces
   if (MZH::pointPlaneDistance(vertices[3]->point(), vertices[0]->point(), v012normal) < 0) {
     // v012plane not facing vertices[3]
