@@ -36,6 +36,9 @@
     <ClCompile Include="QuickHull.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="MathUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ConvexHullCmd.h">
@@ -54,6 +57,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="QuickHull.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MathUtils.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

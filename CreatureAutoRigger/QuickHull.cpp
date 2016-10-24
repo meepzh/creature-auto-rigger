@@ -21,6 +21,8 @@ MStatus QuickHull::build(const MPointArray &points) {
   initBuffers(points.length());
   setPoints(points);
   buildHull();
+
+  return MS::kSuccess;
 }
 
 void QuickHull::buildHull() {
@@ -29,42 +31,96 @@ void QuickHull::buildHull() {
 
 void QuickHull::buildSimplexHull() {
   // Init vars
-  Vertex *v0 = nullptr;
-  Vertex *v1 = nullptr;
-  Vertex *v2 = nullptr;
-  Vertex *v3 = nullptr;
+  Vertex *vertices[4];
   double maxDistance = -1.0;
 
-  computeMinMax(v0, v1);
+  for (unsigned int i = 0; i < 4; ++i) {
+    vertices[i] = nullptr;
+  }
+
+  computeMinMax(vertices[0], vertices[1]);
 
   // Find farthest point v2
   for (size_t i = 0; i < pointBuffer_.size(); ++i) {
     Vertex &vertex = pointBuffer_[i];
-    if (&vertex == v0 || &vertex == v1) continue;
-    const double distance = MZH::pointLineDistance(vertex.point(), v0->point(), v1->point());
+    if (&vertex == vertices[0] || &vertex == vertices[1]) continue;
+    const double distance = MZH::pointLineDistance(vertex.point(), vertices[0]->point(), vertices[1]->point());
     if (distance > maxDistance) {
       maxDistance = distance;
-      v2 = &vertex;
+      vertices[2] = &vertex;
     }
   }
-  MPxCommand::displayInfo("Found furthest point v2 " + MZH::toS(v2->point()) + " with distance " + maxDistance);
+  MPxCommand::displayInfo("Found furthest point v2 " + MZH::toS(vertices[2]->point()) + " with distance " + maxDistance);
 
-  MVector v012normal = MZH::unitPlaneNormal(v0->point(), v1->point(), v2->point());
+  MVector v012normal = MZH::unitPlaneNormal(vertices[0]->point(), vertices[1]->point(), vertices[2]->point());
 
   // Find farthest point v3
   for (size_t i = 0; i < pointBuffer_.size(); ++i) {
     Vertex &vertex = pointBuffer_[i];
-    if (&vertex == v0 || &vertex == v1 || &vertex == v2) continue;
-    const double distance = MZH::pointPlaneDistance(vertex.point(), v0->point(), v012normal);
+    if (&vertex == vertices[0] || &vertex == vertices[1] || &vertex == vertices[2]) continue;
+    const double distance = std::abs(MZH::pointPlaneDistance(vertex.point(), vertices[0]->point(), v012normal));
     if (distance > maxDistance) {
       maxDistance = distance;
-      v3 = &vertex;
+      vertices[3] = &vertex;
     }
   }
-  MPxCommand::displayInfo("Found furthest point v3 " + MZH::toS(v3->point()) + " with distance " + maxDistance);
+  MPxCommand::displayInfo("Found furthest point v3 " + MZH::toS(vertices[3]->point()) + " with distance " + maxDistance);
+
+  // Generate faces
+  if (MZH::pointPlaneDistance(vertices[3]->point(), vertices[0]->point(), v012normal) < 0) {
+    // v012plane not facing vertices[3]
+    faces_.emplace_back(Face::createTriangle(*vertices[0], *vertices[1], *vertices[2]));
+    faces_.emplace_back(Face::createTriangle(*vertices[3], *vertices[1], *vertices[0]));
+    faces_.emplace_back(Face::createTriangle(*vertices[3], *vertices[2], *vertices[1]));
+    faces_.emplace_back(Face::createTriangle(*vertices[3], *vertices[0], *vertices[2]));
+
+    // Set opposite half-edges
+    for (size_t i = 0; i < 3; ++i) {
+      size_t j = (i + 1) % 3;
+      // Link faces_[i] with faces_[0]
+      faces_[i + 1]->edge(2)->setOpposite(faces_[0]->edge(j));
+      // Link faces_[i] with faces_[i + 1]
+      faces_[i + 1]->edge(1)->setOpposite(faces_[j + 1]->edge(0));
+    }
+  } else {
+    // v012plane facing vertices[3]
+    faces_.emplace_back(Face::createTriangle(*vertices[0], *vertices[2], *vertices[1]));
+    faces_.emplace_back(Face::createTriangle(*vertices[3], *vertices[0], *vertices[1]));
+    faces_.emplace_back(Face::createTriangle(*vertices[3], *vertices[1], *vertices[2]));
+    faces_.emplace_back(Face::createTriangle(*vertices[3], *vertices[2], *vertices[0]));
+
+    // Set opposite half-edges
+    for (size_t i = 0; i < 3; ++i) {
+      size_t j = (i + 1) % 3;
+      // Link faces_[i] with faces_[0]
+      faces_[i + 1]->edge(2)->setOpposite(faces_[0]->edge(3 - i));
+      // Link faces_[i] with faces_[i + 1]
+      faces_[i + 1]->edge(0)->setOpposite(faces_[j + 1]->edge(1));
+    }
+  }
+
+  // Assign vertices to faces
+  for (size_t i = 0; i < pointBuffer_.size(); ++i) {
+    Vertex &vertex = pointBuffer_[i];
+    if (&vertex == vertices[0] || &vertex == vertices[1] || &vertex == vertices[2] || &vertex == vertices[3]) continue;
+    maxDistance = tolerance_;
+    Face *maxFace = nullptr;
+    for (auto faceIt = faces_.begin(); faceIt != faces_.end(); ++faceIt) {
+      const double distance = (*faceIt)->pointPlaneDistance(vertex.point());
+      if (distance > maxDistance) {
+        maxDistance = distance;
+        maxFace = (*faceIt).get();
+      }
+    }
+    if (maxFace) {
+      addVertexToFace(vertex, maxFace);
+    }
+  }
 }
 
-void QuickHull::computeMinMax(Vertex *&v0, Vertex *&v1) {
+MStatus QuickHull::computeMinMax(Vertex *&v0, Vertex *&v1) {
+  MStatus status;
+
   // Initialize extremes
   Vertex *extremes[3][2];
   for (unsigned int i = 0; i < 3; ++i) {
@@ -95,7 +151,7 @@ void QuickHull::computeMinMax(Vertex *&v0, Vertex *&v1) {
     for (unsigned int j = i + 1; j < 6; ++j) {
       Vertex *tempA = extremes[i / 2][i % 2];
       Vertex *tempB = extremes[j / 2][j % 2];
-      double distance = tempA->point().distanceTo(tempB->point());
+      const double distance = tempA->point().distanceTo(tempB->point());
       if (distance > maxDistance) {
         v0 = tempA;
         v1 = tempB;
@@ -113,15 +169,40 @@ void QuickHull::computeMinMax(Vertex *&v0, Vertex *&v1) {
     * std::max(std::abs(extremes[1][0]->point()[1]), std::abs(extremes[1][1]->point()[1]))
     * std::max(std::abs(extremes[2][0]->point()[2]), std::abs(extremes[2][1]->point()[2]));
   MPxCommand::displayInfo("Tolerance: " + MZH::toS(tolerance_));
+
+  // Check tolerance
+  maxDistance = -1.0;
+  for (unsigned int i = 0; i < 3; ++i) {
+    const double distance = extremes[i][0]->point().distanceTo(extremes[i][1]->point());
+    if (distance > maxDistance) maxDistance = distance;
+  }
+  if (maxDistance < tolerance_) {
+    status = MS::kFailure;
+    status.perror("Tolerance not met by most extreme points");
+  }
+
+  return status;
 }
 
 void QuickHull::initBuffers(unsigned int numPoints) {
   pointBuffer_.reserve(numPoints);
   faces_.clear();
+  claimed_.clear();
 }
 
 void QuickHull::setPoints(const MPointArray &points) {
   for (unsigned int i = 0; i < points.length(); ++i) {
     pointBuffer_.push_back(Vertex(points[i]));
+  }
+}
+
+void QuickHull::addVertexToFace(Vertex &vertex, Face *face) {
+  vertex.setFace(face);
+  if (face->hasOutside()) {
+    claimed_.push_back(vertex);
+    face->setOutside(--claimed_.end());
+  } else {
+    claimed_.insert(face->outside(), vertex);
+    face->setOutside(--face->outside());
   }
 }

@@ -1,7 +1,6 @@
 #include "MathUtils.h"
 
 namespace MZH {
-
   double pointLineDistance(const MPoint &testPt, const MPoint &linePtA, const MPoint &linePtB) {
     const double num = ((testPt - linePtA) ^ (testPt - linePtB)).length();
     const double den = (linePtB - linePtA).length();
@@ -10,7 +9,7 @@ namespace MZH {
 
   double pointPlaneDistance(const MPoint &testPt, const MPoint &planePtA, const MPoint &planePtB, const MPoint &planePtC) {
     const MVector unitNormal = unitPlaneNormal(planePtA, planePtB, planePtC);
-    return unitNormal * (testPt - planePtA);
+    return pointPlaneDistance(testPt, planePtA, unitNormal);
   }
 
   double pointPlaneDistance(const MPoint &testPt, const MPoint &planePt, const MVector &unitPlaneNormal) {

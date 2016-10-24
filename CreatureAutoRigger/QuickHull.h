@@ -16,14 +16,16 @@ public:
 protected:
   void buildHull();
   void buildSimplexHull();
-  void computeMinMax(Vertex *&v0, Vertex *&v1);
+  MStatus computeMinMax(Vertex *&v0, Vertex *&v1);
   void initBuffers(unsigned int numPoints);
   void setPoints(const MPointArray &points);
 
-  std::vector<Face> faces_;
+  std::vector<std::unique_ptr<Face>> faces_;
   std::vector<Vertex> pointBuffer_;
   double tolerance_;
 
 private:
+  void addVertexToFace(Vertex &vertex, Face *face);
   
+  std::list<Vertex> claimed_;
 };
