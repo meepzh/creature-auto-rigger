@@ -1,4 +1,4 @@
-#include "convexHullCmd.h"
+#include "ConvexHullCmd.h"
 
 #include <limits>
 #include <numeric>
@@ -13,7 +13,7 @@
 
 #include "utils.h"
 
-MStatus convexHullCmd::doIt(const MArgList& args) {
+MStatus ConvexHullCmd::doIt(const MArgList& args) {
   MStatus status = MS::kSuccess;
 
   MSelectionList sList;
@@ -44,11 +44,11 @@ MStatus convexHullCmd::doIt(const MArgList& args) {
   return MS::kSuccess;
 }
 
-void *convexHullCmd::creator() {
-  return new convexHullCmd;
+void *ConvexHullCmd::creator() {
+  return new ConvexHullCmd;
 }
 
-void convexHullCmd::createConvexHull(MDagPath dagPath, MStatus *status) {
+void ConvexHullCmd::createConvexHull(MDagPath dagPath, MStatus *status) {
   // Get target's points
   MFnMesh target(dagPath, status);
   if (MZH::hasError(*status, "Failed to get mesh")) return;
@@ -174,11 +174,11 @@ void convexHullCmd::createConvexHull(MDagPath dagPath, MStatus *status) {
   if (MZH::hasError(*status, "Failed to get a DAG path to the convex hull mesh")) return;
 }
 
-void convexHullCmd::createBaseHull(const MPointArray &points, std::list<unsigned int> &useablePoints, MStatus *status) {
+void ConvexHullCmd::createBaseHull(const MPointArray &points, std::list<unsigned int> &useablePoints, MStatus *status) {
 
 }
 
-double convexHullCmd::perpDistance(const MPoint &testPt, const MPoint &linePtA, const MPoint &linePtB) {
+double ConvexHullCmd::perpDistance(const MPoint &testPt, const MPoint &linePtA, const MPoint &linePtB) {
   const double num = ((testPt - linePtA) ^ (testPt - linePtB)).length();
   const double den = (linePtB - linePtA).length();
   return num / den;

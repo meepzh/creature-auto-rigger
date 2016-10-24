@@ -8,7 +8,7 @@
 #include <maya/MPxCommand.h>
 
 // Computes and creates a mesh representing the convex hull of all selected meshes
-class convexHullCmd : public MPxCommand {
+class ConvexHullCmd : public MPxCommand {
 public:
   // Checks the selection list for valid meshes and performs computeHull on them
   MStatus doIt(const MArgList& args);

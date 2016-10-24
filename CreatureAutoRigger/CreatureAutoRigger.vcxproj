@@ -11,17 +11,21 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Options.txt" />
-    <Text Include="ReadMe.txt" />
+    <ClCompile Include="ConvexHullCmd.cpp" />
+    <ClCompile Include="Face.cpp" />
+    <ClCompile Include="HalfEdge.cpp" />
+    <ClCompile Include="PluginMain.cpp" />
+    <ClCompile Include="QuickHull.cpp" />
+    <ClCompile Include="Utils.cpp" />
+    <ClCompile Include="Vertex.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="convexHullCmd.cpp" />
-    <ClCompile Include="pluginMain.cpp" />
-    <ClCompile Include="utils.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="convexHullCmd.h" />
-    <ClInclude Include="utils.h" />
+    <ClInclude Include="ConvexHullCmd.h" />
+    <ClInclude Include="Face.h" />
+    <ClInclude Include="HalfEdge.h" />
+    <ClInclude Include="QuickHull.h" />
+    <ClInclude Include="Utils.h" />
+    <ClInclude Include="Vertex.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <Keyword>Win32Proj</Keyword>

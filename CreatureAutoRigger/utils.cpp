@@ -1,4 +1,4 @@
-#include "utils.h"
+#include "Utils.h"
 
 #include <maya/MFnDagNode.h>
 #include <maya/MPxCommand.h>
