@@ -50,4 +50,5 @@ void HalfEdge::setNext(std::shared_ptr<HalfEdge> &next) {
 
 void HalfEdge::setOpposite(HalfEdge *opposite) {
   opposite_ = opposite;
+  opposite_->opposite_ = this;
 }

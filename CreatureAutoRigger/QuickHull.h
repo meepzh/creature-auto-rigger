@@ -24,6 +24,7 @@ protected:
   void addVertexToHull(Vertex *eyeVertex);
   void buildHull();
   void buildSimplexHull();
+  void clearDeletedFaces();
   void computeHorizon(const MPoint &point, HalfEdge *crossedEdge, Face *face);
   MStatus computeMinMax(Vertex *&v0, Vertex *&v1);
   void deleteFaceVertices(Face *face, Face *absorbingFace = nullptr);

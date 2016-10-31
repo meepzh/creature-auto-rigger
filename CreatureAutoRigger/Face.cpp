@@ -257,7 +257,6 @@ Face *Face::connectHalfEdges(HalfEdge *prevEdge, HalfEdge *edge) {
 
     prevEdge->prev()->setNext(std::shared_ptr<HalfEdge>(edge));
     edge->setOpposite(oppositeEdge);
-    oppositeEdge->setOpposite(edge);
     oppositeFace->computeNormalAndCentroid();
   } else {
     prevEdge->setNext(std::shared_ptr<HalfEdge>(edge));
