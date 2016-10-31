@@ -17,6 +17,11 @@ Vertex *HalfEdge::vertex() const {
   return vertex_;
 }
 
+Vertex *HalfEdge::prevVertex() const {
+  if (prev_) return prev_->vertex();
+  return nullptr;
+}
+
 HalfEdge *HalfEdge::next() {
   return next_.get();
 }
@@ -32,6 +37,10 @@ HalfEdge *HalfEdge::prev() {
 void HalfEdge::clearNext() {
   next_->prev_ = nullptr;
   next_.reset();
+}
+
+void HalfEdge::setFace(Face *face) {
+  face_ = face;
 }
 
 void HalfEdge::setNext(std::shared_ptr<HalfEdge> &next) {

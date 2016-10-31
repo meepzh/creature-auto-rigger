@@ -12,12 +12,14 @@ public:
   Face *face();
   double length() const;
   Vertex *vertex() const;
+  Vertex *prevVertex() const;
 
   HalfEdge *next();
   HalfEdge *opposite();
   HalfEdge *prev();
 
   void clearNext();
+  void setFace(Face *face);
   void setNext(std::shared_ptr<HalfEdge> &next);
   void setOpposite(HalfEdge *opposite);
 

@@ -1,8 +1,10 @@
 #include "QuickHull.h"
 
+#include <assert.h>
 #include <limits>
-#include "MathUtils.h"
 #include <maya/MPxCommand.h>
+
+#include "MathUtils.h"
 #include "Utils.h"
 
 QuickHull::QuickHull(const MPointArray &points, MStatus *status) {
@@ -49,7 +51,23 @@ void QuickHull::mayaExport(int &numVertices, int &numPolygons, MPointArray &vert
 void QuickHull::addNewFaces(Vertex *eyeVertex) {
   newFaces_.clear();
 
+  HalfEdge *firstSideEdge = nullptr;
+  HalfEdge *prevSideEdge = nullptr;
+  
+  for (HalfEdge *horizonEdge : horizon_) {
+    HalfEdge *sideEdge = addAdjoiningFace(eyeVertex, horizonEdge);
 
+    if (!firstSideEdge) {
+      firstSideEdge = sideEdge;
+    } else {
+      sideEdge->next()->setOpposite(prevSideEdge);
+    }
+    
+    newFaces_.push_back(sideEdge->face());
+    prevSideEdge = sideEdge;
+  }
+
+  firstSideEdge->next()->setOpposite(prevSideEdge);
 }
 
 void QuickHull::addVertexToHull(Vertex *eyeVertex) {
@@ -63,6 +81,24 @@ void QuickHull::addVertexToHull(Vertex *eyeVertex) {
   computeHorizon(eyeVertex->point(), nullptr, eyeVertex->face());
 
   MPxCommand::displayInfo("Horizon size " + MZH::toS<unsigned int>((unsigned int) horizon_.size()));
+
+  addNewFaces(eyeVertex);
+
+  // First Merge
+  for (Face *face : newFaces_) {
+    if (face->flag != Face::Flag::VISIBLE) continue;
+    while (doAdjacentMerge(face, MergeType::NONCONVEX_WRT_LARGER_FACE));
+  }
+
+  // Second Merge
+  for (Face *face : newFaces_) {
+    if (face->flag == Face::Flag::NONCONVEX) {
+      face->flag = Face::Flag::VISIBLE;
+      while (doAdjacentMerge(face, MergeType::NONCONVEX));
+    }
+  }
+
+  resolveUnclaimedPoints();
 }
 
 void QuickHull::buildHull() {
@@ -70,10 +106,10 @@ void QuickHull::buildHull() {
 
   Vertex *eyeVertex;
   unsigned int iterations = 0;
-  /*while (eyeVertex = nextVertexToAdd()) {
+  while (eyeVertex = nextVertexToAdd()) {
     ++iterations;
     addVertexToHull(eyeVertex);
-  }*/
+  }
 
   MPxCommand::displayInfo("Completed with " + MZH::toS(iterations) + " iterations");
 }
@@ -266,7 +302,24 @@ MStatus QuickHull::computeMinMax(Vertex *&v0, Vertex *&v1) {
 }
 
 void QuickHull::deleteFaceVertices(Face *face, Face *absorbingFace) {
+  std::list<Vertex *> faceVertices = removeAllVerticesFromFace(face);
+  
+  if (faceVertices.empty()) return;
+  if (!absorbingFace) {
+    for (Vertex *vertex : faceVertices) {
+      unclaimed_.push_back(vertex);
+    }
+    return;
+  }
 
+  for (Vertex *vertex : faceVertices) {
+    const double distance = absorbingFace->pointPlaneDistance(vertex->point());
+    if (distance > tolerance_) {
+      addVertexToFace(vertex, absorbingFace);
+    } else {
+      unclaimed_.push_back(vertex);
+    }
+  }
 }
 
 void QuickHull::initBuffers(unsigned int numPoints) {
@@ -293,6 +346,32 @@ Vertex *QuickHull::nextVertexToAdd() {
   return eyeVertex;
 }
 
+double QuickHull::oppositeFaceDistance(HalfEdge *he) const {
+  return he->face()->pointPlaneDistance(he->opposite()->face()->centroid());
+}
+
+void QuickHull::resolveUnclaimedPoints() {
+  for (Vertex *vertex : unclaimed_) {
+    double maxDistance = tolerance_;
+    Face *maxFace = nullptr;
+
+    for (Face *face : newFaces_) {
+      if (face->flag == Face::Flag::VISIBLE) {
+        const double distance = face->pointPlaneDistance(vertex->point());
+        if (distance > maxDistance) {
+          maxDistance = distance;
+          maxFace = face;
+        }
+        if (maxDistance > 1000 * tolerance_) break;
+      }
+    }
+
+    if (maxFace) {
+      addVertexToFace(vertex, maxFace);
+    }
+  }
+}
+
 void QuickHull::setPoints(const MPointArray &points) {
   for (unsigned int i = 0; i < points.length(); ++i) {
     vertices_.push_back(Vertex(points[i]));
@@ -308,6 +387,77 @@ void QuickHull::addVertexToFace(Vertex *vertex, Face *face) {
     claimed_.push_back(vertex);
     face->setOutside(--claimed_.end());
   }
+}
+
+HalfEdge *QuickHull::addAdjoiningFace(Vertex *eyeVertex, HalfEdge *he) {
+  faces_.emplace_back(Face::createTriangle(eyeVertex, he->prevVertex(), he->vertex()));
+  Face *face = faces_.back().get();
+  face->edge(-1)->setOpposite(he->opposite());
+  return face->edge();
+}
+
+bool QuickHull::doAdjacentMerge(Face *face, MergeType mergeType) {
+  HalfEdge *edge = face->edge();
+  bool convex = true;
+  unsigned int counter = 0;
+  
+  do {
+    assert(counter < face->numVertices());
+    Face *oppositeFace = edge->opposite()->face();
+    bool merge = false;
+
+    if (mergeType == MergeType::NONCONVEX) {
+      if (oppositeFaceDistance(edge) > -tolerance_ || oppositeFaceDistance(edge->opposite()) > -tolerance_) {
+        merge = true;
+      }
+    } else {
+      if (face->area() > oppositeFace->area()) {
+        if (oppositeFaceDistance(edge) > -tolerance_) {
+          merge = true;
+        } else if (oppositeFaceDistance(edge->opposite()) > -tolerance_) {
+          convex = true;
+        }
+      } else {
+        if (oppositeFaceDistance(edge->opposite()) > -tolerance_) {
+          merge = true;
+        } else if (oppositeFaceDistance(edge) > -tolerance_) {
+          convex = true;
+        }
+      }
+
+      if (merge) {
+        std::vector<Face *> discardedFaces;
+        face->mergeAdjacentFaces(edge, discardedFaces);
+        for (Face *discardedFace : discardedFaces) {
+          deleteFaceVertices(discardedFace, face);
+        }
+        return true;
+      }
+    } // end-if-else MergeType::NONCONVEX
+
+    edge = edge->next();
+    ++counter;
+  } while (edge != face->edge());
+
+  if (!convex) {
+    face->flag = Face::Flag::NONCONVEX;
+  }
+
+  return false;
+}
+
+std::list<Vertex *> QuickHull::removeAllVerticesFromFace(Face *face) {
+  std::list<Vertex *> faceVertices;
+  
+  if (face->hasOutside()) {
+    auto vertexIt = face->outside();
+    do {
+      faceVertices.push_back(*vertexIt);
+      vertexIt = claimed_.erase(vertexIt);
+    } while (vertexIt != claimed_.end() && (*vertexIt)->face() == face);
+  }
+
+  return faceVertices;
 }
 
 void QuickHull::removeVertexFromFace(Vertex *vertex, Face *face) {
@@ -326,6 +476,6 @@ void QuickHull::removeVertexFromFace(Vertex *vertex, Face *face) {
         claimed_.erase(vertexIt);
         continue;
       }
-    } //end-for
-  } //end-if
+    } // end-for
+  } // end-if
 }

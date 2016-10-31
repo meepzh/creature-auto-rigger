@@ -11,6 +11,8 @@ class QuickHull {
 public:
   QuickHull(const MPointArray &points, MStatus *status = nullptr);
   
+  enum MergeType { NONCONVEX, NONCONVEX_WRT_LARGER_FACE };
+
   // Constructs the convex hull
   MStatus build(const MPointArray &points);
   void mayaExport(int &numVertices, int &numPolygons, MPointArray &vertexArray, MIntArray &polygonCounts, MIntArray &polygonConnects);
@@ -27,6 +29,8 @@ protected:
   void deleteFaceVertices(Face *face, Face *absorbingFace = nullptr);
   void initBuffers(unsigned int numPoints);
   Vertex *nextVertexToAdd();
+  double oppositeFaceDistance(HalfEdge *he) const;
+  void resolveUnclaimedPoints();
   void setPoints(const MPointArray &points);
 
   std::vector<std::unique_ptr<Face>> faces_;
@@ -36,6 +40,9 @@ protected:
 
 private:
   void addVertexToFace(Vertex *vertex, Face *face);
+  HalfEdge *addAdjoiningFace(Vertex *eyeVertex, HalfEdge *he);
+  bool doAdjacentMerge(Face *face, MergeType mergeType);
+  std::list<Vertex *> removeAllVerticesFromFace(Face *face);
   void removeVertexFromFace(Vertex *vertex, Face *face);
 
   std::list<Vertex *> claimed_;

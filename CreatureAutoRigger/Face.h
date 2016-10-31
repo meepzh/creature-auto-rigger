@@ -4,6 +4,7 @@
 #include <maya/MPoint.h>
 #include <maya/MVector.h>
 #include <memory>
+#include <vector>
 
 #include "HalfEdge.h"
 
@@ -12,20 +13,25 @@ public:
   Face();
   ~Face();
 
-  enum Flag { VISIBLE, NON_CONVEX, DELETED };
+  enum Flag { VISIBLE, NONCONVEX, DELETED };
 
+  void checkConsistency();
   void computeCentroid();
   // Computes the normal, area, and number of vertices
   void computeNormal();
   void computeNormal(double minArea);
+  void mergeAdjacentFaces(HalfEdge *adjacentEdge, std::vector<Face *> &discardedFaces);
   double pointPlaneDistance(const MPoint &testPt) const;
 
   HalfEdge *edge();
   HalfEdge *edge(int i);
   void setEdge(std::shared_ptr<HalfEdge> &edge);
 
+  double area() const;
+  MPoint centroid() const;
   void clearOutside();
   bool hasOutside() const;
+  unsigned int numVertices() const;
   std::list<Vertex *>::iterator outside() const;
   void setOutside(std::list<Vertex *>::iterator outside);
 
@@ -36,6 +42,7 @@ public:
 private:
   void computeNormalAndCentroid();
   void computeNormalAndCentroid(double minArea);
+  Face *connectHalfEdges(HalfEdge *prevEdge, HalfEdge *edge);
   
   double area_;
   MPoint centroid_;
