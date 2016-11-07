@@ -9,7 +9,7 @@
 
 class QuickHull {
 public:
-  QuickHull(const MPointArray &points, MStatus *status = nullptr);
+  QuickHull(const MPointArray &points, int maxIterations = -1, MStatus *status = nullptr);
   
   enum MergeType { NONCONVEX, NONCONVEX_WRT_LARGER_FACE };
 
@@ -36,6 +36,7 @@ protected:
 
   std::vector<std::unique_ptr<Face>> faces_;
   std::vector<HalfEdge *> horizon_;
+  int maxIterations_;
   std::vector<Vertex> vertices_;
   double tolerance_;
 

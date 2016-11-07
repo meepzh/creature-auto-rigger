@@ -7,7 +7,8 @@
 #include "MathUtils.h"
 #include "Utils.h"
 
-QuickHull::QuickHull(const MPointArray &points, MStatus *status) {
+QuickHull::QuickHull(const MPointArray &points, int maxIterations, MStatus *status)
+    : maxIterations_(maxIterations) {
   MStatus returnStatus;
   returnStatus = build(points);
   if (status) *status = returnStatus;
@@ -110,12 +111,12 @@ void QuickHull::buildHull() {
   buildSimplexHull();
 
   Vertex *eyeVertex;
-  unsigned int iterations = 0;
+  int iterations = 0;
   while (eyeVertex = nextVertexToAdd()) {
-    ++iterations;
+    if (maxIterations_ >= 0 && iterations >= maxIterations_) break;
     addVertexToHull(eyeVertex);
     clearDeletedFaces();
-    if (iterations == 30) break;
+    ++iterations;
   }
 
   MPxCommand::displayInfo("Completed with " + MZH::toS(iterations) + " iterations");

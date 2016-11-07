@@ -1,5 +1,6 @@
 #include "ConvexHullCmd.h"
 
+#include <maya/MArgDatabase.h>
 #include <maya/MFnMesh.h>
 #include <maya/MFnMeshData.h>
 #include <maya/MGlobal.h>
@@ -10,8 +11,16 @@
 #include "QuickHull.h"
 #include "Utils.h"
 
+#define kIterationsFlagLong "-iterations"
+#define kIterationsFlag "-i"
+
 MStatus ConvexHullCmd::doIt(const MArgList& args) {
   MStatus status = MS::kSuccess;
+  int maxIterations = -1;
+
+  status = parseArgs(args, maxIterations);
+  if (MZH::hasError(status, "Error parsing arguments")) return status;
+  displayInfo("Max Iterations: " + MZH::toS(maxIterations));
 
   MSelectionList sList;
   MGlobal::getActiveSelectionList(sList);
@@ -25,10 +34,10 @@ MStatus ConvexHullCmd::doIt(const MArgList& args) {
     
     if (dagPath.node().hasFn(MFn::kMesh)) {
       selectedMesh = true;
-      createConvexHull(dagPath, &status);
+      createConvexHull(dagPath, maxIterations, &status);
     } else if (dagPath.node().hasFn(MFn::kTransform) && dagPath.hasFn(MFn::kMesh)) {
       selectedMesh = true;
-      createConvexHull(dagPath, &status);
+      createConvexHull(dagPath, maxIterations, &status);
     }
   }
 
@@ -45,7 +54,13 @@ void *ConvexHullCmd::creator() {
   return new ConvexHullCmd;
 }
 
-void ConvexHullCmd::createConvexHull(MDagPath dagPath, MStatus *status) {
+MSyntax ConvexHullCmd::newSyntax() {
+  MSyntax syntax;
+  syntax.addFlag(kIterationsFlag, kIterationsFlagLong, MSyntax::kLong);
+  return syntax;
+}
+
+void ConvexHullCmd::createConvexHull(MDagPath dagPath, int maxIterations, MStatus *status) {
   // Get target's points
   MFnMesh target(dagPath, status);
   if (MZH::hasError(*status, "Failed to get mesh")) return;
@@ -94,4 +109,15 @@ void ConvexHullCmd::createConvexHull(MDagPath dagPath, MStatus *status) {
 
   outputDagPaths.append(MDagPath::getAPathTo(transform, status));
   if (MZH::hasError(*status, "Failed to get a DAG path to the convex hull mesh")) return;
+}
+
+MStatus ConvexHullCmd::parseArgs(const MArgList &args, int &maxIterations) {
+  MStatus status = MS::kSuccess;
+
+  MArgDatabase argData(syntax(), args);
+  if (argData.isFlagSet(kIterationsFlag)) {
+    maxIterations = argData.flagArgumentInt(kIterationsFlag, 0, &status);
+  }
+
+  return status;
 }
