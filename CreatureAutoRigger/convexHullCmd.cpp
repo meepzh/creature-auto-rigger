@@ -75,7 +75,8 @@ void ConvexHullCmd::createConvexHull(MDagPath dagPath, int maxIterations, MStatu
   }
 
   // Generate convex hull
-  QuickHull qc(targetPoints);
+  QuickHull qc(targetPoints, maxIterations, status);
+  if (MZH::hasError(*status, "Error running QuickHull")) return;
 
   // Debug vertices
   for (auto it = qc.debugVertices.begin(); it != qc.debugVertices.end(); ++it) {
@@ -116,7 +117,7 @@ MStatus ConvexHullCmd::parseArgs(const MArgList &args, int &maxIterations) {
 
   MArgDatabase argData(syntax(), args);
   if (argData.isFlagSet(kIterationsFlag)) {
-    maxIterations = argData.flagArgumentInt(kIterationsFlag, 0, &status);
+    status = argData.getFlagArgument(kIterationsFlag, 0, maxIterations);
   }
 
   return status;
