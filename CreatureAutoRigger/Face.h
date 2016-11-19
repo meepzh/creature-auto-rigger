@@ -20,12 +20,12 @@ public:
   // Computes the normal, area, and number of vertices
   void computeNormal();
   void computeNormal(double minArea);
-  void mergeAdjacentFaces(HalfEdge *adjacentEdge, std::vector<Face *> &discardedFaces);
+  void mergeAdjacentFaces(std::shared_ptr<HalfEdge> adjacentEdge, std::vector<Face *> &discardedFaces);
   double pointPlaneDistance(const MPoint &testPt) const;
 
-  HalfEdge *edge();
-  HalfEdge *edge(int i);
-  void setEdge(std::shared_ptr<HalfEdge> &edge);
+  std::shared_ptr<HalfEdge> edge();
+  std::shared_ptr<HalfEdge> edge(int i);
+  void setEdge(std::shared_ptr<HalfEdge> edge);
 
   double area() const;
   MPoint centroid() const;
@@ -42,7 +42,7 @@ public:
 private:
   void computeNormalAndCentroid();
   void computeNormalAndCentroid(double minArea);
-  Face *connectHalfEdges(HalfEdge *prevEdge, HalfEdge *edge);
+  Face *connectHalfEdges(std::shared_ptr<HalfEdge> prevEdge, std::shared_ptr<HalfEdge> edge);
   
   double area_;
   MPoint centroid_;

@@ -36,8 +36,8 @@ void QuickHull::mayaExport(int &numVertices, int &numPolygons, MPointArray &vert
   polygonConnects.clear();
 
   for (std::unique_ptr<Face> &face : faces_) {
-    HalfEdge *faceEdge = face->edge();
-    HalfEdge *curEdge = faceEdge;
+    std::shared_ptr<HalfEdge> faceEdge = face->edge();
+    std::shared_ptr<HalfEdge> curEdge = faceEdge;
     int polygonCount = 0;
     do {
       vertexArray.append(curEdge->vertex()->point());
@@ -54,11 +54,11 @@ void QuickHull::addNewFaces(Vertex *eyeVertex) {
 
   assert(!horizon_.empty());
 
-  HalfEdge *firstSideEdge = nullptr;
-  HalfEdge *prevSideEdge = nullptr;
+  std::shared_ptr<HalfEdge> firstSideEdge;
+  std::shared_ptr<HalfEdge> prevSideEdge;
   
-  for (HalfEdge *horizonEdge : horizon_) {
-    HalfEdge *sideEdge = addAdjoiningFace(eyeVertex, horizonEdge);
+  for (std::shared_ptr<HalfEdge> horizonEdge : horizon_) {
+    std::shared_ptr<HalfEdge> sideEdge = addAdjoiningFace(eyeVertex, horizonEdge);
 
     if (!firstSideEdge) {
       firstSideEdge = sideEdge;
@@ -234,12 +234,12 @@ void QuickHull::clearDeletedFaces() {
   }
 }
 
-void QuickHull::computeHorizon(const MPoint &eyePoint, HalfEdge *crossedEdge, Face *face) {
+void QuickHull::computeHorizon(const MPoint &eyePoint, std::shared_ptr<HalfEdge> crossedEdge, Face *face) {
   deleteFaceVertices(face);
   face->flag = Face::Flag::DELETED;
-  HalfEdge *edge;
+  std::shared_ptr<HalfEdge> edge;
 
-  if (crossedEdge == nullptr) {
+  if (!crossedEdge) {
     crossedEdge = face->edge();
     edge = crossedEdge;
   } else {
@@ -248,7 +248,7 @@ void QuickHull::computeHorizon(const MPoint &eyePoint, HalfEdge *crossedEdge, Fa
   }
 
   do {
-    HalfEdge *oppositeEdge = edge->opposite();
+    std::shared_ptr<HalfEdge> oppositeEdge = edge->opposite().lock();
     Face *oppositeFace = oppositeEdge->face();
     if (oppositeFace->flag == Face::Flag::VISIBLE) {
       if (oppositeFace->pointPlaneDistance(eyePoint) > tolerance_) {
@@ -375,7 +375,7 @@ Vertex *QuickHull::nextVertexToAdd() {
 }
 
 double QuickHull::oppositeFaceDistance(HalfEdge *he) const {
-  return he->face()->pointPlaneDistance(he->opposite()->face()->centroid());
+  return he->face()->pointPlaneDistance(he->opposite().lock()->face()->centroid());
 }
 
 void QuickHull::resolveUnclaimedPoints() {
@@ -416,7 +416,7 @@ void QuickHull::addVertexToFace(Vertex *vertex, Face *face) {
   }
 }
 
-HalfEdge *QuickHull::addAdjoiningFace(Vertex *eyeVertex, HalfEdge *he) {
+std::shared_ptr<HalfEdge> QuickHull::addAdjoiningFace(Vertex *eyeVertex, std::shared_ptr<HalfEdge> he) {
   faces_.emplace_back(Face::createTriangle(eyeVertex, he->prevVertex(), he->vertex()));
   Face *face = faces_.back().get();
   face->edge(-1)->setOpposite(he->opposite());
@@ -424,28 +424,31 @@ HalfEdge *QuickHull::addAdjoiningFace(Vertex *eyeVertex, HalfEdge *he) {
 }
 
 bool QuickHull::doAdjacentMerge(Face *face, MergeType mergeType) {
-  HalfEdge *edge = face->edge();
+  std::shared_ptr<HalfEdge> faceEdgeShared = face->edge();
+  std::shared_ptr<HalfEdge> edgeShared = faceEdgeShared;
+  HalfEdge *edge = edgeShared.get();
+  HalfEdge *opposite = edge->opposite().lock().get();
   bool convex = true;
   unsigned int counter = 0;
   
   do {
     assert(counter < face->numVertices());
-    Face *oppositeFace = edge->opposite()->face();
+    Face *oppositeFace = edge->opposite().lock()->face();
     bool merge = false;
 
     if (mergeType == MergeType::NONCONVEX) {
-      if (oppositeFaceDistance(edge) > -tolerance_ || oppositeFaceDistance(edge->opposite()) > -tolerance_) {
+      if (oppositeFaceDistance(edge) > -tolerance_ || oppositeFaceDistance(opposite) > -tolerance_) {
         merge = true;
       }
     } else {
       if (face->area() > oppositeFace->area()) {
         if (oppositeFaceDistance(edge) > -tolerance_) {
           merge = true;
-        } else if (oppositeFaceDistance(edge->opposite()) > -tolerance_) {
+        } else if (oppositeFaceDistance(opposite) > -tolerance_) {
           convex = true;
         }
       } else {
-        if (oppositeFaceDistance(edge->opposite()) > -tolerance_) {
+        if (oppositeFaceDistance(opposite) > -tolerance_) {
           merge = true;
         } else if (oppositeFaceDistance(edge) > -tolerance_) {
           convex = true;
@@ -454,7 +457,7 @@ bool QuickHull::doAdjacentMerge(Face *face, MergeType mergeType) {
 
       if (merge) {
         std::vector<Face *> discardedFaces;
-        face->mergeAdjacentFaces(edge, discardedFaces);
+        face->mergeAdjacentFaces(edgeShared, discardedFaces);
         for (Face *discardedFace : discardedFaces) {
           deleteFaceVertices(discardedFace, face);
         }
@@ -462,9 +465,10 @@ bool QuickHull::doAdjacentMerge(Face *face, MergeType mergeType) {
       }
     } // end-if-else MergeType::NONCONVEX
 
-    edge = edge->next();
+    edgeShared = edge->next();
+    edge = edgeShared.get();
     ++counter;
-  } while (edge != face->edge());
+  } while (edgeShared != faceEdgeShared);
 
   if (!convex) {
     face->flag = Face::Flag::NONCONVEX;

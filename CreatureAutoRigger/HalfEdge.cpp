@@ -1,8 +1,7 @@
 #include "HalfEdge.h"
 
 HalfEdge::HalfEdge(Vertex *vertex, Face *face)
-    : vertex_(vertex), face_(face),
-      next_(nullptr), opposite_(nullptr), prev_(nullptr) {
+    : vertex_(vertex), face_(face) {
 }
 
 Face *HalfEdge::face() {
@@ -10,7 +9,7 @@ Face *HalfEdge::face() {
 }
 
 double HalfEdge::length() const {
-  return (vertex_->point() - prev_->vertex()->point()).length();
+  return (vertex_->point() - prev_.lock()->vertex()->point()).length();
 }
 
 Vertex *HalfEdge::vertex() const {
@@ -18,24 +17,24 @@ Vertex *HalfEdge::vertex() const {
 }
 
 Vertex *HalfEdge::prevVertex() const {
-  if (prev_) return prev_->vertex();
+  if (!prev_.expired()) return prev_.lock()->vertex();
   return nullptr;
 }
 
-HalfEdge *HalfEdge::next() {
-  return next_.get();
+std::shared_ptr<HalfEdge> HalfEdge::next() {
+  return next_;
 }
 
-HalfEdge *HalfEdge::opposite() {
+std::weak_ptr<HalfEdge> HalfEdge::opposite() {
   return opposite_;
 }
 
-HalfEdge *HalfEdge::prev() {
+std::weak_ptr<HalfEdge> HalfEdge::prev() {
   return prev_;
 }
 
 void HalfEdge::clearNext() {
-  next_->prev_ = nullptr;
+  next_->prev_.reset();
   next_.reset();
 }
 
@@ -43,12 +42,12 @@ void HalfEdge::setFace(Face *face) {
   face_ = face;
 }
 
-void HalfEdge::setNext(std::shared_ptr<HalfEdge> &next) {
+void HalfEdge::setNext(std::shared_ptr<HalfEdge> next) {
   next_ = next;
-  next_->prev_ = this;
+  next_->prev_ = shared_from_this();
 }
 
-void HalfEdge::setOpposite(HalfEdge *opposite) {
+void HalfEdge::setOpposite(std::weak_ptr<HalfEdge> opposite) {
   opposite_ = opposite;
-  opposite_->opposite_ = this;
+  opposite_.lock()->opposite_ = shared_from_this();
 }

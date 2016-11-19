@@ -9,20 +9,20 @@ Face::Face()
 Face::~Face() {
   if (edge_) {
     // Prevent circular reference
-    edge_->prev()->clearNext();
+    edge_->prev().lock()->clearNext();
   }
 }
 
 void Face::checkConsistency() {
-  HalfEdge *edge = edge_.get();
+  std::shared_ptr<HalfEdge> edge = edge_;
   int numVertices = 0;
 
   assert(numVertices_ >= 3);
 
   do {
-    HalfEdge *oppositeEdge = edge->opposite();
-    assert(oppositeEdge != nullptr);
-    assert(oppositeEdge->opposite() == edge);
+    assert(!edge->opposite().expired());
+    std::shared_ptr<HalfEdge> oppositeEdge = edge->opposite().lock();
+    assert(oppositeEdge->opposite().lock() == edge);
     assert(oppositeEdge->vertex() != edge->prevVertex());
     assert(edge->vertex() != oppositeEdge->prevVertex());
 
@@ -31,7 +31,8 @@ void Face::checkConsistency() {
     assert(oppositeFace->flag != Flag::DELETED);
 
     ++numVertices;
-  } while (edge != edge_.get());
+    edge = edge->next();
+  } while (edge != edge_);
 
   assert(numVertices == numVertices_);
 }
@@ -42,14 +43,14 @@ void Face::computeCentroid() {
   HalfEdge *curEdge = faceEdge;
   do {
     centroid_ += curEdge->vertex()->point();
-    curEdge = curEdge->next();
+    curEdge = curEdge->next().get();
   } while (curEdge != faceEdge);
   centroid_ = centroid_ / (double) numVertices_;
 }
 
 void Face::computeNormal() {
   HalfEdge *faceEdge = edge_.get();
-  HalfEdge *curEdge = faceEdge->next()->next();
+  HalfEdge *curEdge = faceEdge->next()->next().get();
 
   MVector v1;
   MVector v2 = faceEdge->next()->vertex()->point() - faceEdge->vertex()->point();
@@ -62,7 +63,7 @@ void Face::computeNormal() {
     v2 = curEdge->vertex()->point() - faceEdge->vertex()->point();
     normal_ += v1 ^ v2;
 
-    curEdge = curEdge->next();
+    curEdge = curEdge->next().get();
     ++numVertices_;
   }
 
@@ -87,11 +88,11 @@ void Face::computeNormal(double minArea) {
         maxEdge = curEdge;
         maxLength = length;
       }
-      curEdge = curEdge->next();
+      curEdge = curEdge->next().get();
     } while (curEdge != faceEdge);
 
     // Recompute normal
-    MVector maxVector = curEdge->vertex()->point() - curEdge->prev()->vertex()->point();
+    MVector maxVector = curEdge->vertex()->point() - curEdge->prev().lock()->vertex()->point();
     maxVector.normalize();
     double maxProjection = normal_ * maxVector;
     normal_ += maxVector * (-maxProjection);
@@ -99,39 +100,39 @@ void Face::computeNormal(double minArea) {
   }
 }
 
-void Face::mergeAdjacentFaces(HalfEdge *adjacentEdge, std::vector<Face *> &discardedFaces) {
-  HalfEdge *oppositeEdge = adjacentEdge->opposite();
+void Face::mergeAdjacentFaces(std::shared_ptr<HalfEdge> adjacentEdge, std::vector<Face *> &discardedFaces) {
+  std::shared_ptr<HalfEdge> oppositeEdge = adjacentEdge->opposite().lock();
   Face *oppositeFace = oppositeEdge->face();
 
   discardedFaces.push_back(oppositeFace);
   oppositeFace->flag = Flag::DELETED;
 
-  HalfEdge *adjacentEdgePrev = adjacentEdge->prev();
-  HalfEdge *adjacentEdgeNext = adjacentEdge->next();
-  HalfEdge *oppositeEdgePrev = oppositeEdge->prev();
-  HalfEdge *oppositeEdgeNext = oppositeEdge->next();
+  std::shared_ptr<HalfEdge> adjacentEdgePrev = adjacentEdge->prev().lock();
+  std::shared_ptr<HalfEdge> adjacentEdgeNext = adjacentEdge->next();
+  std::shared_ptr<HalfEdge> oppositeEdgePrev = oppositeEdge->prev().lock();
+  std::shared_ptr<HalfEdge> oppositeEdgeNext = oppositeEdge->next();
 
   // Find opposite edge chain
   // Left edge
-  while (adjacentEdgePrev->opposite()->face() == oppositeFace) {
-    adjacentEdgePrev = adjacentEdgePrev->prev();
+  while (adjacentEdgePrev->opposite().lock()->face() == oppositeFace) {
+    adjacentEdgePrev = adjacentEdgePrev->prev().lock();
     oppositeEdgeNext = oppositeEdgeNext->next();
   }
 
   // Right edge
-  while (adjacentEdgeNext->opposite()->face() == oppositeFace) {
+  while (adjacentEdgeNext->opposite().lock()->face() == oppositeFace) {
     adjacentEdgeNext = adjacentEdgeNext->next();
-    oppositeEdgePrev = oppositeEdgePrev->prev();
+    oppositeEdgePrev = oppositeEdgePrev->prev().lock();
   }
 
   // Fix face references
-  HalfEdge *edge = nullptr;
+  std::shared_ptr<HalfEdge> edge;
   for (edge = oppositeEdgeNext; edge != oppositeEdgePrev->next(); edge = edge->next()) {
     edge->setFace(this);
   }
 
   // Preserve with edge that won't be destroyed
-  edge_ = std::shared_ptr<HalfEdge>(adjacentEdgeNext);
+  edge_ = adjacentEdgeNext;
 
   // Connect
   Face *discardedFace = connectHalfEdges(oppositeEdgePrev, adjacentEdgeNext);
@@ -151,26 +152,26 @@ double Face::pointPlaneDistance(const MPoint &pt) const {
   return normal_ * pt - planeOffset_;
 }
 
-HalfEdge *Face::edge() {
-  return edge_.get();
+std::shared_ptr<HalfEdge> Face::edge() {
+  return edge_;
 }
 
-HalfEdge *Face::edge(int i) {
-  HalfEdge *curEdge = edge_.get();
+std::shared_ptr<HalfEdge> Face::edge(int i) {
+  std::shared_ptr<HalfEdge> curEdge = edge_;
 
   while (i > 0) {
     curEdge = curEdge->next();
     --i;
   }
   while (i < 0) {
-    curEdge = curEdge->prev();
+    curEdge = curEdge->prev().lock();
     ++i;
   }
 
   return curEdge;
 }
 
-void Face::setEdge(std::shared_ptr<HalfEdge> &edge) {
+void Face::setEdge(std::shared_ptr<HalfEdge> edge) {
   edge_ = edge;
 }
 
@@ -230,36 +231,36 @@ void Face::computeNormalAndCentroid(double minArea) {
   planeOffset_ = normal_ * centroid_;
 }
 
-Face *Face::connectHalfEdges(HalfEdge *prevEdge, HalfEdge *edge) {
+Face *Face::connectHalfEdges(std::shared_ptr<HalfEdge> prevEdge, std::shared_ptr<HalfEdge> edge) {
   Face *discardedFace = nullptr;
 
-  if (prevEdge->opposite()->face() == edge->opposite()->face()) {
+  if (prevEdge->opposite().lock()->face() == edge->opposite().lock()->face()) {
     // Redundant edge
-    Face *oppositeFace = edge->opposite()->face();
-    HalfEdge *oppositeEdge;
+    Face *oppositeFace = edge->opposite().lock()->face();
+    std::shared_ptr<HalfEdge> oppositeEdge;
 
-    if (prevEdge == edge_.get()) {
-      edge_ = std::shared_ptr<HalfEdge>(edge);
+    if (prevEdge == edge_) {
+      edge_ = edge;
     }
 
     if (oppositeFace->numVertices() == 3) {
       // Remove face
-      oppositeEdge = edge->opposite()->prev()->opposite();
+      oppositeEdge = edge->opposite().lock()->prev().lock()->opposite().lock();
       oppositeFace->flag = Flag::DELETED;
       discardedFace = oppositeFace;
     } else {
-      oppositeEdge = edge->opposite()->next();
-      if (oppositeFace->edge() == oppositeEdge->prev()) {
-        oppositeFace->setEdge(std::shared_ptr<HalfEdge>(oppositeEdge));
+      oppositeEdge = edge->opposite().lock()->next();
+      if (oppositeFace->edge() == oppositeEdge->prev().lock()) {
+        oppositeFace->setEdge(oppositeEdge);
       }
-      oppositeEdge->prev()->prev()->setNext(std::shared_ptr<HalfEdge>(oppositeEdge));
+      oppositeEdge->prev().lock()->prev().lock()->setNext(oppositeEdge);
     }
 
-    prevEdge->prev()->setNext(std::shared_ptr<HalfEdge>(edge));
+    prevEdge->prev().lock()->setNext(edge);
     edge->setOpposite(oppositeEdge);
     oppositeFace->computeNormalAndCentroid();
   } else {
-    prevEdge->setNext(std::shared_ptr<HalfEdge>(edge));
+    prevEdge->setNext(edge);
   }
 
   return discardedFace;

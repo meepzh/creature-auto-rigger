@@ -25,7 +25,7 @@ protected:
   void buildHull();
   void buildSimplexHull();
   void clearDeletedFaces();
-  void computeHorizon(const MPoint &point, HalfEdge *crossedEdge, Face *face);
+  void computeHorizon(const MPoint &point, std::shared_ptr<HalfEdge> crossedEdge, Face *face);
   MStatus computeMinMax(Vertex *&v0, Vertex *&v1);
   void deleteFaceVertices(Face *face, Face *absorbingFace = nullptr);
   void initBuffers(unsigned int numPoints);
@@ -35,14 +35,14 @@ protected:
   void setPoints(const MPointArray &points);
 
   std::vector<std::unique_ptr<Face>> faces_;
-  std::vector<HalfEdge *> horizon_;
+  std::vector<std::shared_ptr<HalfEdge>> horizon_;
   int maxIterations_;
   std::vector<Vertex> vertices_;
   double tolerance_;
 
 private:
   void addVertexToFace(Vertex *vertex, Face *face);
-  HalfEdge *addAdjoiningFace(Vertex *eyeVertex, HalfEdge *he);
+  std::shared_ptr<HalfEdge> addAdjoiningFace(Vertex *eyeVertex, std::shared_ptr<HalfEdge> he);
   bool doAdjacentMerge(Face *face, MergeType mergeType);
   std::list<Vertex *> removeAllVerticesFromFace(Face *face);
   void removeVertexFromFace(Vertex *vertex, Face *face);

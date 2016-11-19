@@ -5,7 +5,7 @@
 
 class Face;
 
-class HalfEdge {
+class HalfEdge : public std::enable_shared_from_this<HalfEdge> {
 public:
   HalfEdge(Vertex *vertex, Face *face);
   
@@ -14,19 +14,19 @@ public:
   Vertex *vertex() const;
   Vertex *prevVertex() const;
 
-  HalfEdge *next();
-  HalfEdge *opposite();
-  HalfEdge *prev();
+  std::shared_ptr<HalfEdge> next();
+  std::weak_ptr<HalfEdge> opposite();
+  std::weak_ptr<HalfEdge> prev();
 
   void clearNext();
   void setFace(Face *face);
-  void setNext(std::shared_ptr<HalfEdge> &next);
-  void setOpposite(HalfEdge *opposite);
+  void setNext(std::shared_ptr<HalfEdge> next);
+  void setOpposite(std::weak_ptr<HalfEdge> opposite);
 
 private:
   Face *face_;
   std::shared_ptr<HalfEdge> next_;
-  HalfEdge *opposite_;
-  HalfEdge *prev_;
+  std::weak_ptr<HalfEdge> opposite_;
+  std::weak_ptr<HalfEdge> prev_;
   Vertex *vertex_;
 };
