@@ -40,9 +40,10 @@ public:
   static std::unique_ptr<Face> createTriangle(Vertex *v0, Vertex *v1, Vertex *v2, double minArea = 0);
 
 private:
+  void checkVertexCount();
   void computeNormalAndCentroid();
   void computeNormalAndCentroid(double minArea);
-  Face *connectHalfEdges(std::shared_ptr<HalfEdge> prevEdge, std::shared_ptr<HalfEdge> edge);
+  Face *connectHalfEdges(std::shared_ptr<HalfEdge> prevEdge, std::shared_ptr<HalfEdge> nextEdge);
   
   double area_;
   MPoint centroid_;

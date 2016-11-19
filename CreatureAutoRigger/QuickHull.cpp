@@ -97,10 +97,9 @@ void QuickHull::addVertexToHull(Vertex *eyeVertex) {
   // Second Merge
   MPxCommand::displayInfo("Second merge");
   for (Face *face : newFaces_) {
-    if (face->flag == Face::Flag::NONCONVEX) {
-      face->flag = Face::Flag::VISIBLE;
-      while (doAdjacentMerge(face, MergeType::NONCONVEX));
-    }
+    if (face->flag != Face::Flag::NONCONVEX) continue;
+    face->flag = Face::Flag::VISIBLE;
+    while (doAdjacentMerge(face, MergeType::NONCONVEX));
   }
   
   MPxCommand::displayInfo("Resolving unclaimed points");
@@ -237,6 +236,7 @@ void QuickHull::clearDeletedFaces() {
 void QuickHull::computeHorizon(const MPoint &eyePoint, std::shared_ptr<HalfEdge> crossedEdge, Face *face) {
   deleteFaceVertices(face);
   face->flag = Face::Flag::DELETED;
+
   std::shared_ptr<HalfEdge> edge;
 
   if (!crossedEdge) {
@@ -248,6 +248,7 @@ void QuickHull::computeHorizon(const MPoint &eyePoint, std::shared_ptr<HalfEdge>
   }
 
   do {
+    assert(!(edge->opposite().expired()));
     std::shared_ptr<HalfEdge> oppositeEdge = edge->opposite().lock();
     Face *oppositeFace = oppositeEdge->face();
     if (oppositeFace->flag == Face::Flag::VISIBLE) {
@@ -332,6 +333,7 @@ void QuickHull::deleteFaceVertices(Face *face, Face *absorbingFace) {
   
   if (faceVertices.empty()) return;
   if (!absorbingFace) {
+    // Let some other face claim it
     for (Vertex *vertex : faceVertices) {
       unclaimed_.push_back(vertex);
     }
@@ -360,8 +362,8 @@ Vertex *QuickHull::nextVertexToAdd() {
   Vertex *eyeVertex = nullptr;
   double maxDistance = -1.0;
   //const Face *eyeFace = claimed_.front()->face();
-  Face *eyeFace = claimed_.front()->face();
-  eyeFace->setOutside(claimed_.begin());
+  const Face *eyeFace = claimed_.front()->face();
+  assert(eyeFace->outside() == claimed_.begin());
 
   for (auto vertexIt = eyeFace->outside(); vertexIt != claimed_.end() && (*vertexIt)->face() == eyeFace; ++vertexIt) {
     const double distance = eyeFace->pointPlaneDistance((*vertexIt)->point());
@@ -413,13 +415,14 @@ void QuickHull::addVertexToFace(Vertex *vertex, Face *face) {
   } else {
     claimed_.push_back(vertex);
     face->setOutside(--claimed_.end());
+    assert(face->outside() != claimed_.end());
   }
 }
 
-std::shared_ptr<HalfEdge> QuickHull::addAdjoiningFace(Vertex *eyeVertex, std::shared_ptr<HalfEdge> he) {
-  faces_.emplace_back(Face::createTriangle(eyeVertex, he->prevVertex(), he->vertex()));
+std::shared_ptr<HalfEdge> QuickHull::addAdjoiningFace(Vertex *eyeVertex, std::shared_ptr<HalfEdge> horizonEdge) {
+  faces_.emplace_back(Face::createTriangle(eyeVertex, horizonEdge->prevVertex(), horizonEdge->vertex()));
   Face *face = faces_.back().get();
-  face->edge(-1)->setOpposite(he->opposite());
+  face->edge(-1)->setOpposite(horizonEdge->opposite());
   return face->edge();
 }
 
@@ -427,13 +430,15 @@ bool QuickHull::doAdjacentMerge(Face *face, MergeType mergeType) {
   std::shared_ptr<HalfEdge> faceEdgeShared = face->edge();
   std::shared_ptr<HalfEdge> edgeShared = faceEdgeShared;
   HalfEdge *edge = edgeShared.get();
-  HalfEdge *opposite = edge->opposite().lock().get();
   bool convex = true;
   unsigned int counter = 0;
   
   do {
     assert(counter < face->numVertices());
-    Face *oppositeFace = edge->opposite().lock()->face();
+    
+    assert(!(edge->opposite().expired()));
+    HalfEdge *opposite = edge->opposite().lock().get();
+    Face *oppositeFace = opposite->face();
     bool merge = false;
 
     if (mergeType == MergeType::NONCONVEX) {
@@ -494,9 +499,9 @@ std::list<Vertex *> QuickHull::removeAllVerticesFromFace(Face *face) {
 
 void QuickHull::removeVertexFromFace(Vertex *vertex, Face *face) {
   auto vertexIt = face->outside();
-  if (vertex == *vertexIt) {
+  if (*vertexIt == vertex) {
     vertexIt = claimed_.erase(vertexIt);
-    if (vertexIt == claimed_.end()) {
+    if (vertexIt == claimed_.end() || (*vertexIt)->face() != face) {
       face->clearOutside();
     } else {
       face->setOutside(vertexIt);
@@ -509,5 +514,5 @@ void QuickHull::removeVertexFromFace(Vertex *vertex, Face *face) {
         break;
       }
     } // end-for
-  } // end-if
+  } // end-if-else
 }

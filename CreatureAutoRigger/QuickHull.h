@@ -42,7 +42,7 @@ protected:
 
 private:
   void addVertexToFace(Vertex *vertex, Face *face);
-  std::shared_ptr<HalfEdge> addAdjoiningFace(Vertex *eyeVertex, std::shared_ptr<HalfEdge> he);
+  std::shared_ptr<HalfEdge> addAdjoiningFace(Vertex *eyeVertex, std::shared_ptr<HalfEdge> horizonEdge);
   bool doAdjacentMerge(Face *face, MergeType mergeType);
   std::list<Vertex *> removeAllVerticesFromFace(Face *face);
   void removeVertexFromFace(Vertex *vertex, Face *face);
