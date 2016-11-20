@@ -1,18 +1,11 @@
 #include "QuickHull.h"
 
 #include <cassert>
-#include <iostream>
 #include <limits>
 #include <maya/MPxCommand.h>
 
 #include "MathUtils.h"
 #include "Utils.h"
-
-std::ofstream QuickHull::log("D:\\quickhull.log", std::ios::trunc);
-void QuickHull::initLog() {
-  log << "QuickHull Log Running" << std::endl;
-  log.flush();
-}
 
 QuickHull::QuickHull(const MPointArray &points, int maxIterations, MStatus *status)
     : maxIterations_(maxIterations) {
@@ -81,7 +74,6 @@ void QuickHull::addNewFaces(Vertex *eyeVertex) {
 }
 
 void QuickHull::addVertexToHull(Vertex *eyeVertex) {
-  log << "addVertexToHull" << std::endl;
   MPxCommand::displayInfo("Adding point " + MZH::toS(eyeVertex->point())
     + " at height " + eyeVertex->face()->pointPlaneDistance(eyeVertex->point()));
 
@@ -115,7 +107,6 @@ void QuickHull::addVertexToHull(Vertex *eyeVertex) {
 }
 
 void QuickHull::sanityCheck() {
-  log << "****** sanityCheck" << std::endl;
   for (std::unique_ptr<Face> &face : faces_) {
     face->checkConsistency(true);
   }
@@ -127,7 +118,6 @@ void QuickHull::buildHull() {
   Vertex *eyeVertex;
   int iterations = 0;
   while (eyeVertex = nextVertexToAdd()) {
-    log << "*********** Working on iteration " << iterations << std::endl;
     if (maxIterations_ >= 0 && iterations >= maxIterations_) break;
     addVertexToHull(eyeVertex);
     clearDeletedFaces();
@@ -233,7 +223,6 @@ void QuickHull::buildSimplexHull() {
 }
 
 void QuickHull::clearDeletedFaces() {
-  log << "clearDeletedFaces" << std::endl;
   /*for (auto it = claimed_.begin(); it != claimed_.end(); ) {
     if ((*it)->face()->flag == Face::Flag::DELETED) {
       it = claimed_.erase(it);
@@ -244,7 +233,6 @@ void QuickHull::clearDeletedFaces() {
 
   for (auto it = faces_.begin(); it != faces_.end(); ) {
     if ((*it)->flag == Face::Flag::DELETED) {
-      log << (*it).get() << " - Deleted" << std::endl;
       it = faces_.erase(it);
     } else {
       ++it;
@@ -253,7 +241,6 @@ void QuickHull::clearDeletedFaces() {
 }
 
 void QuickHull::computeHorizon(const MPoint &eyePoint, std::shared_ptr<HalfEdge> crossedEdge, Face *face) {
-  log << face << " - computeHorizon" << std::endl;
   deleteFaceVertices(face);
   face->flag = Face::Flag::DELETED;
 
@@ -352,7 +339,6 @@ MStatus QuickHull::computeMinMax(Vertex *&v0, Vertex *&v1) {
 }
 
 void QuickHull::deleteFaceVertices(Face *face, Face *absorbingFace) {
-  log << face << " - deleteFaceVertices absorbed by " << absorbingFace << std::endl;
   std::list<Vertex *> faceVertices = removeAllVerticesFromFace(face);
   
   if (faceVertices.empty()) return;
@@ -387,7 +373,6 @@ Vertex *QuickHull::nextVertexToAdd() {
   double maxDistance = -1.0;
   //const Face *eyeFace = claimed_.front()->face();
   const Face *eyeFace = claimed_.front()->face();
-  log << eyeFace << " - nextVertexToAdd" << std::endl;
   assert(eyeFace->outside() == claimed_.begin());
 
   for (auto vertexIt = eyeFace->outside(); vertexIt != claimed_.end() && (*vertexIt)->face() == eyeFace; ++vertexIt) {
@@ -406,7 +391,6 @@ double QuickHull::oppositeFaceDistance(HalfEdge *he) const {
 }
 
 void QuickHull::resolveUnclaimedPoints() {
-  log << "resolveUnclaimedPoints" << std::endl;
   for (Vertex *vertex : unclaimed_) {
     double maxDistance = tolerance_;
     Face *maxFace = nullptr;
@@ -435,7 +419,6 @@ void QuickHull::setPoints(const MPointArray &points) {
 }
 
 void QuickHull::addVertexToFace(Vertex *vertex, Face *face) {
-  log << face << " - addVertexToFace" << std::endl;
   vertex->setFace(face);
   if (face->hasOutside()) {
     face->setOutside(claimed_.insert(face->outside(), vertex));
@@ -447,7 +430,6 @@ void QuickHull::addVertexToFace(Vertex *vertex, Face *face) {
 }
 
 std::shared_ptr<HalfEdge> QuickHull::addAdjoiningFace(Vertex *eyeVertex, std::shared_ptr<HalfEdge> horizonEdge) {
-  log << "addAdjoiningFace" << std::endl;
   faces_.emplace_back(Face::createTriangle(eyeVertex, horizonEdge->prevVertex(), horizonEdge->vertex()));
   Face *face = faces_.back().get();
   face->edge(-1)->setOpposite(horizonEdge->opposite());
@@ -455,7 +437,6 @@ std::shared_ptr<HalfEdge> QuickHull::addAdjoiningFace(Vertex *eyeVertex, std::sh
 }
 
 bool QuickHull::doAdjacentMerge(Face *face, MergeType mergeType) {
-  log << face << " - doAdjacentMerge" << std::endl;
   std::shared_ptr<HalfEdge> faceEdgeShared = face->edge();
   std::shared_ptr<HalfEdge> edgeShared = faceEdgeShared;
   HalfEdge *edge = edgeShared.get();
@@ -468,7 +449,6 @@ bool QuickHull::doAdjacentMerge(Face *face, MergeType mergeType) {
     assert(!(edge->opposite().expired()));
     HalfEdge *opposite = edge->opposite().lock().get();
     Face *oppositeFace = opposite->face();
-    log << " - Edge: " << edge << ", opposite: " << opposite << ", oppositeFace: " << oppositeFace << std::endl;
     bool merge = false;
 
     if (mergeType == MergeType::NONCONVEX) {
@@ -493,11 +473,6 @@ bool QuickHull::doAdjacentMerge(Face *face, MergeType mergeType) {
       if (merge) {
         std::vector<Face *> discardedFaces;
         face->mergeAdjacentFaces(edgeShared, discardedFaces);
-        log << " - doAdjacentMerge discarded faces: ";
-        for (Face *discardedFace : discardedFaces) {
-          log << discardedFace << " ";
-        }
-        log << std::endl;
         for (Face *discardedFace : discardedFaces) {
           deleteFaceVertices(discardedFace, face);
         }
@@ -520,7 +495,6 @@ bool QuickHull::doAdjacentMerge(Face *face, MergeType mergeType) {
 }
 
 std::list<Vertex *> QuickHull::removeAllVerticesFromFace(Face *face) {
-  log << face << " - removeAllVerticesFromFace" << std::endl;
   std::list<Vertex *> faceVertices;
   
   if (face->hasOutside()) {
@@ -536,7 +510,6 @@ std::list<Vertex *> QuickHull::removeAllVerticesFromFace(Face *face) {
 }
 
 void QuickHull::removeVertexFromFace(Vertex *vertex, Face *face) {
-  log << face << " - removeVertexFromFace" << std::endl;
   auto vertexIt = face->outside();
   if (*vertexIt == vertex) {
     vertexIt = claimed_.erase(vertexIt);

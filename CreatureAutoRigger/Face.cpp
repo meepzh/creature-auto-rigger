@@ -3,31 +3,19 @@
 #include <algorithm>
 #include <vector>
 #include <cassert>
-#include "QuickHull.h"
-
-unsigned int Face::lastId = 0;
 
 Face::Face()
   : area_(0), edge_(nullptr), hasOutside_(false),
-    numVertices_(0), planeOffset_(0), flag(Flag::VISIBLE), id(lastId++) {
+    numVertices_(0), planeOffset_(0), flag(Flag::VISIBLE) {
 }
 
 Face::~Face() {
-  QuickHull::log << this << "(" << id << ") - Destructor" << std::endl;
-  QuickHull::log << " - edge_ use count: " << edge_.use_count() << std::endl;
-
-  QuickHull::log << " - Edges: ";
   std::shared_ptr<HalfEdge> curEdge = edge_;
   bool circularDependency = true;
   std::vector<HalfEdge *> seenEdges;
   bool unseenEdge = true;
   do {
     seenEdges.push_back(curEdge.get());
-    QuickHull::log << curEdge.get() << "(" << (curEdge.use_count() - 1);
-    if (curEdge) {
-       QuickHull::log << "/" << curEdge->face();
-    }
-    QuickHull::log << ") ";
     if (!curEdge) {
       circularDependency = false;
       break;
@@ -43,22 +31,17 @@ Face::~Face() {
     // Prevent circular reference
     edge_->prev().lock()->clearNext();
   }
-  QuickHull::log << std::endl;
 }
 
 void Face::checkConsistency(bool checkPtrCounts) {
-  QuickHull::log << this << "(" << id << ") - Checking consistency" << std::endl;
-
   std::shared_ptr<HalfEdge> edge = edge_;
   assert(edge);
-  int numVertices = 0;
 
+  int numVertices = 0;
   assert(numVertices_ >= 3);
 
   do {
-    QuickHull::log << " - Edge: " << edge.get() << "(" << edge->id << ")";
-    QuickHull::log.flush();
-
+    // Shared use count
     if (checkPtrCounts) {
       if (edge == edge_) {
         // Should only be referred to by this function, its prev edge, and its face
@@ -69,26 +52,24 @@ void Face::checkConsistency(bool checkPtrCounts) {
       }
     }
 
+    // Opposite edge
     assert(!edge->opposite().expired());
     std::shared_ptr<HalfEdge> oppositeEdge = edge->opposite().lock();
-    QuickHull::log << ", opposite: " << oppositeEdge.get() << "(" << oppositeEdge->id << ")";
-    QuickHull::log.flush();
     assert(oppositeEdge->opposite().lock() == edge);
     assert(oppositeEdge->vertex() == edge->prevVertex());
     assert(edge->vertex() == oppositeEdge->prevVertex());
 
+    // Opposite face
     Face *oppositeFace = oppositeEdge->face();
-    QuickHull::log << ", oface: " << oppositeFace << "(" << oppositeFace->id << ")";
     assert(oppositeFace);
     assert(oppositeFace->flag != Flag::DELETED);
 
+    // Prev/next edges
     assert(!(edge->prev().expired()));
-    QuickHull:: log << ", prev: " << edge->prev().lock().get();
     assert(edge->next());
-    QuickHull:: log << ", next: " << edge->next().get();
     assert(edge->next()->prev().lock() == edge);
     edge = edge->next();
-    QuickHull::log << std::endl;
+
     ++numVertices;
   } while (edge != edge_);
 
@@ -170,12 +151,10 @@ void Face::computeNormal(double minArea) {
 }
 
 void Face::mergeAdjacentFaces(std::shared_ptr<HalfEdge> adjacentEdge, std::vector<Face *> &discardedFaces) {
-  QuickHull::log << this << " - mergeAdjacentFaces" << std::endl;
   assert(!(adjacentEdge->opposite().expired()));
   std::shared_ptr<HalfEdge> oppositeEdge = adjacentEdge->opposite().lock();
   Face *oppositeFace = oppositeEdge->face();
 
-  QuickHull::log << " - oppositeFace " << oppositeFace << std::endl;
   discardedFaces.push_back(oppositeFace);
   oppositeFace->flag = Flag::DELETED;
 
@@ -214,12 +193,10 @@ void Face::mergeAdjacentFaces(std::shared_ptr<HalfEdge> adjacentEdge, std::vecto
 
   // Connect
   Face *discardedFace = connectHalfEdges(oppositeEdgePrev, adjacentEdgeNext);
-  QuickHull::log << " - discardedFace " << discardedFace << std::endl;
   if (discardedFace) {
     discardedFaces.push_back(discardedFace);
   }
   discardedFace = connectHalfEdges(adjacentEdgePrev, oppositeEdgeNext);
-  QuickHull::log << " - discardedFace " << discardedFace << std::endl;
   if (discardedFace) {
     discardedFaces.push_back(discardedFace);
   }
@@ -286,12 +263,10 @@ void Face::setOutside(std::list<Vertex *>::iterator outside) {
 
 std::unique_ptr<Face> Face::createTriangle(Vertex *v0, Vertex *v1, Vertex *v2, double minArea) {
   std::unique_ptr<Face> face(new Face);
-  QuickHull::log << face.get() << " - Created triangle" << std::endl;
 
   std::shared_ptr<HalfEdge> e0 = std::make_shared<HalfEdge>(v0, face.get());
   std::shared_ptr<HalfEdge> e1 = std::make_shared<HalfEdge>(v1, face.get());
   std::shared_ptr<HalfEdge> e2 = std::make_shared<HalfEdge>(v2, face.get());
-  QuickHull::log << "- Edges: " << e0.get() << " " << e1.get() << " " << e2.get() << std::endl;
 
   face->setEdge(e0);
   e0->setNext(e1);
@@ -320,13 +295,11 @@ void Face::computeNormalAndCentroid(double minArea) {
 }
 
 Face *Face::connectHalfEdges(std::shared_ptr<HalfEdge> prevEdge, std::shared_ptr<HalfEdge> nextEdge) {
-  QuickHull::log << this << " - connectHalfEdges" << std::endl;
   Face *discardedFace = nullptr;
 
   assert(!(nextEdge->opposite().expired()));
   std::shared_ptr<HalfEdge> oldOppositeEdge = nextEdge->opposite().lock();
   Face *oppositeFace = oldOppositeEdge->face();
-  QuickHull::log << " - oppositeFace " << oppositeFace << std::endl;
 
   assert(!(prevEdge->opposite().expired()));
   if (prevEdge->opposite().lock()->face() == oppositeFace) {

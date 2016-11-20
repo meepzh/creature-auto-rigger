@@ -1,6 +1,5 @@
 #pragma once
 
-#include <fstream>
 #include <list>
 #include <maya/MIntArray.h>
 #include <maya/MPointArray.h>
@@ -19,9 +18,6 @@ public:
   void mayaExport(int &numVertices, int &numPolygons, MPointArray &vertexArray, MIntArray &polygonCounts, MIntArray &polygonConnects);
 
   std::vector<Vertex *> debugVertices;
-
-  static void initLog();
-  static std::ofstream log;
 
 protected:
   void addNewFaces(Vertex *eyeVertex);

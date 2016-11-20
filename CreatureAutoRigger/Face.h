@@ -38,9 +38,6 @@ public:
 
   Flag flag;
 
-  unsigned int id;
-  static unsigned int lastId;
-
   static std::unique_ptr<Face> createTriangle(Vertex *v0, Vertex *v1, Vertex *v2, double minArea = 0);
 
 private:
