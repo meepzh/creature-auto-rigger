@@ -79,9 +79,9 @@ void ConvexHullCmd::createConvexHull(MDagPath dagPath, int maxIterations, MStatu
   if (MZH::hasError(*status, "Error running QuickHull")) return;
 
   // Debug vertices
-  for (auto it = qc.debugVertices.begin(); it != qc.debugVertices.end(); ++it) {
+  /*for (auto it = qc.debugVertices.begin(); it != qc.debugVertices.end(); ++it) {
     MZH::createLocator(dgModifier, (*it)->point(), MString("v#"), false);
-  }
+  }*/
 
   // Export from QuickHull
   int numVertices = 0;

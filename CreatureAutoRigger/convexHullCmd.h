@@ -1,6 +1,5 @@
 #pragma once
 
-#include <list>
 #include <maya/MArgList.h>
 #include <maya/MDagPath.h>
 #include <maya/MDagPathArray.h>
