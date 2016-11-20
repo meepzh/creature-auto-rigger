@@ -1,12 +1,14 @@
 #include <maya/MFnPlugin.h>
 
 #include "ConvexHullCmd.h"
+#include "QuickHull.h"
 
 MStatus initializePlugin(MObject obj) { 
   MStatus status;
   MFnPlugin plugin(obj, "Robert Zhou", "1.0", "Any");
 
   status = plugin.registerCommand("convexHullCmd", ConvexHullCmd::creator, ConvexHullCmd::newSyntax);
+  QuickHull::initLog();
 
   if (!status) {
     status.perror("registerNode");
