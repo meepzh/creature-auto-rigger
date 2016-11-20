@@ -1,5 +1,7 @@
 #include "Face.h"
 
+#include <algorithm>
+#include <vector>
 #include <cassert>
 #include "QuickHull.h"
 
@@ -13,15 +15,14 @@ Face::Face()
 Face::~Face() {
   QuickHull::log << this << "(" << id << ") - Destructor" << std::endl;
   QuickHull::log << " - edge_ use count: " << edge_.use_count() << std::endl;
-  if (edge_ && edge_.use_count() == 1) {
-    // Prevent circular reference
-    edge_->prev().lock()->clearNext();
-  }
 
   QuickHull::log << " - Edges: ";
   std::shared_ptr<HalfEdge> curEdge = edge_;
   bool circularDependency = true;
+  std::vector<HalfEdge *> seenEdges;
+  bool unseenEdge = true;
   do {
+    seenEdges.push_back(curEdge.get());
     QuickHull::log << curEdge.get() << "(" << (curEdge.use_count() - 1);
     if (curEdge) {
        QuickHull::log << "/" << curEdge->face();
@@ -32,7 +33,11 @@ Face::~Face() {
       break;
     }
     curEdge = curEdge->next();
-  } while (curEdge != edge_);
+    unseenEdge = std::find(seenEdges.begin(), seenEdges.end(), curEdge.get()) == seenEdges.end();
+  } while (curEdge != edge_ && unseenEdge);
+
+  // Only care if face's edge is part of a circle
+  circularDependency = circularDependency && curEdge == edge_;
 
   if (circularDependency && (edge_.use_count() == 2) && !(edge_->prev().expired())) {
     // Prevent circular reference
