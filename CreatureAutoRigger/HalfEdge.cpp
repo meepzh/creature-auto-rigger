@@ -3,8 +3,10 @@
 #include <cassert>
 #include "QuickHull.h"
 
+unsigned int HalfEdge::lastId = 0;
+
 HalfEdge::HalfEdge(Vertex *vertex, Face *face)
-    : vertex_(vertex), face_(face) {
+    : vertex_(vertex), face_(face), id(lastId++) {
 }
 
 Face *HalfEdge::face() {
@@ -57,4 +59,6 @@ void HalfEdge::setOpposite(std::weak_ptr<HalfEdge> opposite) {
   opposite_ = opposite;
   opposite_.lock()->opposite_ = shared_from_this();
   QuickHull::log << this << " - Set opposite " << opposite.lock().get() << std::endl;
+  assert(opposite_.lock()->vertex() == prevVertex());
+  assert(vertex() == opposite_.lock()->prevVertex());
 }

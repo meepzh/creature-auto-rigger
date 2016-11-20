@@ -23,6 +23,9 @@ public:
   void setNext(std::shared_ptr<HalfEdge> next);
   void setOpposite(std::weak_ptr<HalfEdge> opposite);
 
+  unsigned int id;
+  static unsigned int lastId;
+
 private:
   Face *face_;
   std::shared_ptr<HalfEdge> next_;

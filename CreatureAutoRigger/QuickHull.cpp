@@ -487,14 +487,14 @@ bool QuickHull::doAdjacentMerge(Face *face, MergeType mergeType) {
       if (merge) {
         std::vector<Face *> discardedFaces;
         face->mergeAdjacentFaces(edgeShared, discardedFaces);
-        log << "  - Discarded faces: ";
+        log << " - doAdjacentMerge discarded faces: ";
         for (Face *discardedFace : discardedFaces) {
           log << discardedFace << " ";
         }
+        log << std::endl;
         for (Face *discardedFace : discardedFaces) {
           deleteFaceVertices(discardedFace, face);
         }
-        log << std::endl;
         return true;
       }
     } // end-if-else MergeType::NONCONVEX
@@ -507,6 +507,8 @@ bool QuickHull::doAdjacentMerge(Face *face, MergeType mergeType) {
   if (!convex) {
     face->flag = Face::Flag::NONCONVEX;
   }
+
+  face->checkConsistency();
 
   return false;
 }

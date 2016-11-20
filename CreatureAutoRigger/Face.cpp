@@ -12,18 +12,28 @@ Face::Face()
 
 Face::~Face() {
   QuickHull::log << this << "(" << id << ") - Destructor" << std::endl;
-  if (edge_) {
+  QuickHull::log << " - edge_ use count: " << edge_.use_count() << std::endl;
+  if (edge_ && edge_.use_count() == 1) {
     // Prevent circular reference
     edge_->prev().lock()->clearNext();
   }
 
   QuickHull::log << " - Edges: ";
   std::shared_ptr<HalfEdge> curEdge = edge_;
+  bool circularDependency = true;
   do {
-    QuickHull::log << curEdge.get() << "(" << curEdge.use_count() << ") ";
-    if (!curEdge) break;
+    QuickHull::log << curEdge.get() << "(" << (curEdge.use_count() - 1) << ") ";
+    if (!curEdge) {
+      circularDependency = false;
+      break;
+    }
     curEdge = curEdge->next();
   } while (curEdge != edge_);
+
+  if (circularDependency && (edge_.use_count() == 2) && !(edge_->prev().expired())) {
+    // Prevent circular reference
+    edge_->prev().lock()->clearNext();
+  }
   QuickHull::log << std::endl;
 }
 
@@ -37,7 +47,7 @@ void Face::checkConsistency(bool checkPtrCounts) {
   assert(numVertices_ >= 3);
 
   do {
-    QuickHull::log << " - Edge: " << edge.get();
+    QuickHull::log << " - Edge: " << edge.get() << "(" << edge->id << ")";
     QuickHull::log.flush();
 
     if (checkPtrCounts) {
@@ -52,20 +62,25 @@ void Face::checkConsistency(bool checkPtrCounts) {
 
     assert(!edge->opposite().expired());
     std::shared_ptr<HalfEdge> oppositeEdge = edge->opposite().lock();
-    QuickHull::log << ", opposite: " << oppositeEdge.get();
+    QuickHull::log << ", opposite: " << oppositeEdge.get() << "(" << oppositeEdge->id << ")";
+    QuickHull::log.flush();
     assert(oppositeEdge->opposite().lock() == edge);
     assert(oppositeEdge->vertex() == edge->prevVertex());
     assert(edge->vertex() == oppositeEdge->prevVertex());
 
     Face *oppositeFace = oppositeEdge->face();
-    QuickHull::log << ", oface: " << oppositeFace;
+    QuickHull::log << ", oface: " << oppositeFace << "(" << oppositeFace->id << ")";
     assert(oppositeFace);
     assert(oppositeFace->flag != Flag::DELETED);
 
-    ++numVertices;
+    assert(!(edge->prev().expired()));
+    QuickHull:: log << ", prev: " << edge->prev().lock().get();
     assert(edge->next());
+    QuickHull:: log << ", next: " << edge->next().get();
+    assert(edge->next()->prev().lock() == edge);
     edge = edge->next();
     QuickHull::log << std::endl;
+    ++numVertices;
   } while (edge != edge_);
 
   assert(numVertices == numVertices_);
