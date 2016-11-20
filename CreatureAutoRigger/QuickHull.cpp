@@ -81,6 +81,7 @@ void QuickHull::addNewFaces(Vertex *eyeVertex) {
 }
 
 void QuickHull::addVertexToHull(Vertex *eyeVertex) {
+  log << "addVertexToHull" << std::endl;
   MPxCommand::displayInfo("Adding point " + MZH::toS(eyeVertex->point())
     + " at height " + eyeVertex->face()->pointPlaneDistance(eyeVertex->point()));
 
@@ -114,6 +115,7 @@ void QuickHull::addVertexToHull(Vertex *eyeVertex) {
 }
 
 void QuickHull::sanityCheck() {
+  log << "****** sanityCheck" << std::endl;
   for (std::unique_ptr<Face> &face : faces_) {
     face->checkConsistency(true);
   }
@@ -125,7 +127,7 @@ void QuickHull::buildHull() {
   Vertex *eyeVertex;
   int iterations = 0;
   while (eyeVertex = nextVertexToAdd()) {
-    log << "***** Working on iteration " << iterations << std::endl;
+    log << "*********** Working on iteration " << iterations << std::endl;
     if (maxIterations_ >= 0 && iterations >= maxIterations_) break;
     addVertexToHull(eyeVertex);
     clearDeletedFaces();
@@ -231,6 +233,7 @@ void QuickHull::buildSimplexHull() {
 }
 
 void QuickHull::clearDeletedFaces() {
+  log << "clearDeletedFaces" << std::endl;
   /*for (auto it = claimed_.begin(); it != claimed_.end(); ) {
     if ((*it)->face()->flag == Face::Flag::DELETED) {
       it = claimed_.erase(it);
@@ -384,6 +387,7 @@ Vertex *QuickHull::nextVertexToAdd() {
   double maxDistance = -1.0;
   //const Face *eyeFace = claimed_.front()->face();
   const Face *eyeFace = claimed_.front()->face();
+  log << eyeFace << " - nextVertexToAdd" << std::endl;
   assert(eyeFace->outside() == claimed_.begin());
 
   for (auto vertexIt = eyeFace->outside(); vertexIt != claimed_.end() && (*vertexIt)->face() == eyeFace; ++vertexIt) {
@@ -402,6 +406,7 @@ double QuickHull::oppositeFaceDistance(HalfEdge *he) const {
 }
 
 void QuickHull::resolveUnclaimedPoints() {
+  log << "resolveUnclaimedPoints" << std::endl;
   for (Vertex *vertex : unclaimed_) {
     double maxDistance = tolerance_;
     Face *maxFace = nullptr;
@@ -442,6 +447,7 @@ void QuickHull::addVertexToFace(Vertex *vertex, Face *face) {
 }
 
 std::shared_ptr<HalfEdge> QuickHull::addAdjoiningFace(Vertex *eyeVertex, std::shared_ptr<HalfEdge> horizonEdge) {
+  log << "addAdjoiningFace" << std::endl;
   faces_.emplace_back(Face::createTriangle(eyeVertex, horizonEdge->prevVertex(), horizonEdge->vertex()));
   Face *face = faces_.back().get();
   face->edge(-1)->setOpposite(horizonEdge->opposite());
@@ -530,6 +536,7 @@ std::list<Vertex *> QuickHull::removeAllVerticesFromFace(Face *face) {
 }
 
 void QuickHull::removeVertexFromFace(Vertex *vertex, Face *face) {
+  log << face << " - removeVertexFromFace" << std::endl;
   auto vertexIt = face->outside();
   if (*vertexIt == vertex) {
     vertexIt = claimed_.erase(vertexIt);

@@ -22,7 +22,11 @@ Face::~Face() {
   std::shared_ptr<HalfEdge> curEdge = edge_;
   bool circularDependency = true;
   do {
-    QuickHull::log << curEdge.get() << "(" << (curEdge.use_count() - 1) << ") ";
+    QuickHull::log << curEdge.get() << "(" << (curEdge.use_count() - 1);
+    if (curEdge) {
+       QuickHull::log << "/" << curEdge->face();
+    }
+    QuickHull::log << ") ";
     if (!curEdge) {
       circularDependency = false;
       break;
