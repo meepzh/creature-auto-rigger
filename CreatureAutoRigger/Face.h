@@ -15,7 +15,8 @@ public:
 
   enum Flag { VISIBLE, NONCONVEX, DELETED };
 
-  void checkConsistency();
+  void checkConsistency(bool checkPtrCounts = false);
+  void checkVertexCount();
   void computeCentroid();
   // Computes the normal, area, and number of vertices
   void computeNormal();
@@ -40,7 +41,6 @@ public:
   static std::unique_ptr<Face> createTriangle(Vertex *v0, Vertex *v1, Vertex *v2, double minArea = 0);
 
 private:
-  void checkVertexCount();
   void computeNormalAndCentroid();
   void computeNormalAndCentroid(double minArea);
   Face *connectHalfEdges(std::shared_ptr<HalfEdge> prevEdge, std::shared_ptr<HalfEdge> nextEdge);

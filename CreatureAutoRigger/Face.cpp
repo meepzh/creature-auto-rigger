@@ -13,30 +13,50 @@ Face::~Face() {
   }
 }
 
-void Face::checkConsistency() {
-  return; // TODO: Remove this
+void Face::checkConsistency(bool checkPtrCounts) {
   std::shared_ptr<HalfEdge> edge = edge_;
+  assert(edge);
   int numVertices = 0;
 
   assert(numVertices_ >= 3);
 
   do {
-    assert(edge.use_count() < 2); // Should only be referred to by prev edge and face
+    if (checkPtrCounts) {
+      if (edge == edge_) {
+        // Should only be referred to by this function, its prev edge, and its face
+        assert(edge.use_count() <= 3);
+      } else {
+        // Should only be referred to by this function and its prev edge
+        assert(edge.use_count() <= 2);
+      }
+    }
+
     assert(!edge->opposite().expired());
     std::shared_ptr<HalfEdge> oppositeEdge = edge->opposite().lock();
     assert(oppositeEdge->opposite().lock() == edge);
-    assert(oppositeEdge->vertex() != edge->prevVertex());
-    assert(edge->vertex() != oppositeEdge->prevVertex());
+    assert(oppositeEdge->vertex() == edge->prevVertex());
+    assert(edge->vertex() == oppositeEdge->prevVertex());
 
     Face *oppositeFace = oppositeEdge->face();
-    assert(oppositeFace != nullptr);
+    assert(oppositeFace);
     assert(oppositeFace->flag != Flag::DELETED);
 
     ++numVertices;
+    assert(edge->next());
     edge = edge->next();
   } while (edge != edge_);
 
   assert(numVertices == numVertices_);
+}
+
+void Face::checkVertexCount() {
+  unsigned int numVertices = 0;
+  std::shared_ptr<HalfEdge> edge = edge_;
+  do {
+    ++numVertices;
+    assert(numVertices <= numVertices_);
+    edge = edge->next();
+  } while (edge != edge_);
 }
 
 void Face::computeCentroid() {
@@ -229,16 +249,6 @@ std::unique_ptr<Face> Face::createTriangle(Vertex *v0, Vertex *v1, Vertex *v2, d
   face->computeNormalAndCentroid(minArea);
 
   return face;
-}
-
-void Face::checkVertexCount() {
-  int numVertices = 0;
-  std::shared_ptr<HalfEdge> edge = edge_;
-  do {
-    ++numVertices;
-    assert(numVertices <= numVertices_);
-    edge = edge->next();
-  } while (edge != edge_);
 }
 
 void Face::computeNormalAndCentroid() {

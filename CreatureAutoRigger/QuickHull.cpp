@@ -106,6 +106,12 @@ void QuickHull::addVertexToHull(Vertex *eyeVertex) {
   resolveUnclaimedPoints();
 }
 
+void QuickHull::sanityCheck() {
+  for (std::unique_ptr<Face> &face : faces_) {
+    face->checkConsistency(true);
+  }
+}
+
 void QuickHull::buildHull() {
   buildSimplexHull();
 
@@ -116,6 +122,7 @@ void QuickHull::buildHull() {
     addVertexToHull(eyeVertex);
     clearDeletedFaces();
     ++iterations;
+    sanityCheck();
   }
 
   MPxCommand::displayInfo("Completed with " + MZH::toS(iterations) + " iterations");
@@ -247,7 +254,9 @@ void QuickHull::computeHorizon(const MPoint &eyePoint, std::shared_ptr<HalfEdge>
     edge = crossedEdge->next();
   }
 
+  int iterations = 0;
   do {
+    ++iterations;
     assert(!(edge->opposite().expired()));
     std::shared_ptr<HalfEdge> oppositeEdge = edge->opposite().lock();
     Face *oppositeFace = oppositeEdge->face();
@@ -258,6 +267,7 @@ void QuickHull::computeHorizon(const MPoint &eyePoint, std::shared_ptr<HalfEdge>
         horizon_.push_back(edge);
       }
     }
+    assert(edge->next());
     edge = edge->next();
   } while (edge != crossedEdge);
 }

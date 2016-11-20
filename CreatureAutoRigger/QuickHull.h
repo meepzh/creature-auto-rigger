@@ -22,6 +22,7 @@ public:
 protected:
   void addNewFaces(Vertex *eyeVertex);
   void addVertexToHull(Vertex *eyeVertex);
+  void sanityCheck();
   void buildHull();
   void buildSimplexHull();
   void clearDeletedFaces();

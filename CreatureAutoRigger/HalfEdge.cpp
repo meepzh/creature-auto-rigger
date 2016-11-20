@@ -1,5 +1,7 @@
 #include "HalfEdge.h"
 
+#include <cassert>
+
 HalfEdge::HalfEdge(Vertex *vertex, Face *face)
     : vertex_(vertex), face_(face) {
 }
@@ -43,11 +45,13 @@ void HalfEdge::setFace(Face *face) {
 }
 
 void HalfEdge::setNext(std::shared_ptr<HalfEdge> next) {
+  assert(next);
   next_ = next;
   next_->prev_ = shared_from_this();
 }
 
 void HalfEdge::setOpposite(std::weak_ptr<HalfEdge> opposite) {
+  assert(!(opposite.expired()));
   opposite_ = opposite;
   opposite_.lock()->opposite_ = shared_from_this();
 }
