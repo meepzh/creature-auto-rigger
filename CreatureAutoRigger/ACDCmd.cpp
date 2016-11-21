@@ -1,7 +1,7 @@
 #include "ACDCmd.h"
 
-#include <maya/MFnMesh.h>
 #include <maya/MGlobal.h>
+#include <maya/MItMeshVertex.h>
 #include <maya/MItSelectionList.h>
 
 #include "Utils.h"
@@ -21,10 +21,10 @@ MStatus ACDCmd::doIt(const MArgList& args) {
     
     if (dagPath.node().hasFn(MFn::kMesh)) {
       selectedMesh = true;
-      //createConvexHull(dagPath, maxIterations, &status);
+      runACD(dagPath, &status);
     } else if (dagPath.node().hasFn(MFn::kTransform) && dagPath.hasFn(MFn::kMesh)) {
       selectedMesh = true;
-      //createConvexHull(dagPath, maxIterations, &status);
+      runACD(dagPath, &status);
     }
   }
 
@@ -42,9 +42,15 @@ void *ACDCmd::creator() {
 }
 
 void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
-  // Get target's points
-  MFnMesh target(dagPath, status);
-  if (MZH::hasError(*status, "Failed to get mesh")) return;
+  MItMeshVertex vertexIt(dagPath, MObject::kNullObj, status);
+  if (MZH::hasError(*status, "Failed to get vertex iterator")) return;
+  if (vertexIt.isDone()) {
+    displayWarning("No vertices in object");
+    return;
+  }
 
-
+  displayInfo("Number of vertices: " + MZH::toS(vertexIt.count()));
+  for (; !vertexIt.isDone(); vertexIt.next()) {
+    displayInfo("Vertex " + MZH::toS(vertexIt.index()) + "/" + MZH::toS(vertexIt.count()));
+  }
 }
