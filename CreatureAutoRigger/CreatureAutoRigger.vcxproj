@@ -11,8 +11,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ACD.cpp" />
     <ClCompile Include="ACDCmd.cpp" />
-    <ClCompile Include="ACDVertex.cpp" />
     <ClCompile Include="ConvexHullCmd.cpp" />
     <ClCompile Include="Face.cpp" />
     <ClCompile Include="HalfEdge.cpp" />
@@ -23,8 +23,8 @@
     <ClCompile Include="Vertex.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ACD.h" />
     <ClInclude Include="ACDCmd.h" />
-    <ClInclude Include="ACDVertex.h" />
     <ClInclude Include="ConvexHullCmd.h" />
     <ClInclude Include="Face.h" />
     <ClInclude Include="HalfEdge.h" />

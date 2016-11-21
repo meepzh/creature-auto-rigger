@@ -1,11 +1,15 @@
 #include "Vertex.h"
 
-Vertex::Vertex(const MPoint &point)
-    : face_(nullptr), point_(point) {
+Vertex::Vertex(const MPoint &point, int index)
+    : face_(nullptr), point_(point), index_(index) {
 }
 
 Face *Vertex::face() {
   return face_;
+}
+
+int Vertex::index() const {
+  return index_;
 }
 
 const MPoint &Vertex::point() const {

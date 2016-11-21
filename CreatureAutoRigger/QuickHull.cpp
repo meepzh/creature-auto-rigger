@@ -7,22 +7,22 @@
 #include "MathUtils.h"
 #include "Utils.h"
 
-QuickHull::QuickHull(const MPointArray &points, int maxIterations, MStatus *status)
+QuickHull::QuickHull(MItMeshVertex &vertexIt, int maxIterations, MStatus *status)
     : maxIterations_(maxIterations) {
   MStatus returnStatus;
-  returnStatus = build(points);
+  returnStatus = build(vertexIt);
   if (status) *status = returnStatus;
 }
 
-MStatus QuickHull::build(const MPointArray &points) {
-  if (points.length() < 4) {
+MStatus QuickHull::build(MItMeshVertex &vertexIt) {
+  if (vertexIt.count() < 4) {
     MStatus returnStatus(MS::kFailure);
     returnStatus.perror("At least 4 points required");
     return returnStatus;
   }
 
-  initBuffers(points.length());
-  setPoints(points);
+  initBuffers(vertexIt.count());
+  setPoints(vertexIt);
   buildHull();
 
   return MS::kSuccess;
@@ -30,12 +30,12 @@ MStatus QuickHull::build(const MPointArray &points) {
 
 void QuickHull::mayaExport(int &numVertices, int &numPolygons, MPointArray &vertexArray, MIntArray &polygonCounts, MIntArray &polygonConnects) {
   numVertices = 0;
-  numPolygons = (int) faces_.size();
+  numPolygons = (int) faces_->size();
   vertexArray.clear();
   polygonCounts.clear();
   polygonConnects.clear();
 
-  for (std::unique_ptr<Face> &face : faces_) {
+  for (std::unique_ptr<Face> &face : *faces_) {
     std::shared_ptr<HalfEdge> faceEdge = face->edge();
     std::shared_ptr<HalfEdge> curEdge = faceEdge;
     int polygonCount = 0;
@@ -47,6 +47,14 @@ void QuickHull::mayaExport(int &numVertices, int &numPolygons, MPointArray &vert
     } while (curEdge != faceEdge);
     polygonCounts.append(polygonCount);
   }
+}
+
+std::shared_ptr<std::vector<std::unique_ptr<Face>>> QuickHull::faces() {
+  return faces_;
+}
+
+std::shared_ptr<std::vector<Vertex>> QuickHull::vertices() {
+  return vertices_;
 }
 
 void QuickHull::addNewFaces(Vertex *eyeVertex) {
@@ -83,31 +91,26 @@ void QuickHull::addVertexToHull(Vertex *eyeVertex) {
   removeVertexFromFace(eyeVertex, eyeVertex->face());
   computeHorizon(eyeVertex->point(), nullptr, eyeVertex->face());
 
-  MPxCommand::displayInfo("Horizon size " + MZH::toS<unsigned int>((unsigned int) horizon_.size()));
-
   addNewFaces(eyeVertex);
 
   // First Merge
-  MPxCommand::displayInfo("First merge");
   for (Face *face : newFaces_) {
     if (face->flag != Face::Flag::VISIBLE) continue;
     while (doAdjacentMerge(face, MergeType::NONCONVEX_WRT_LARGER_FACE));
   }
 
   // Second Merge
-  MPxCommand::displayInfo("Second merge");
   for (Face *face : newFaces_) {
     if (face->flag != Face::Flag::NONCONVEX) continue;
     face->flag = Face::Flag::VISIBLE;
     while (doAdjacentMerge(face, MergeType::NONCONVEX));
   }
-  
-  MPxCommand::displayInfo("Resolving unclaimed points");
+
   resolveUnclaimedPoints();
 }
 
 void QuickHull::sanityCheck() {
-  for (std::unique_ptr<Face> &face : faces_) {
+  for (std::unique_ptr<Face> &face : *faces_) {
     face->checkConsistency(true);
   }
 }
@@ -141,7 +144,7 @@ void QuickHull::buildSimplexHull() {
 
   // Find farthest point v2
   maxDistance = -1.0;
-  for (Vertex &vertex : vertices_) {
+  for (Vertex &vertex : *vertices_) {
     if (&vertex == initialVertices[0] || &vertex == initialVertices[1]) continue;
     const double distance = MZH::pointLineDistance(vertex.point(), initialVertices[0]->point(), initialVertices[1]->point());
     if (distance > maxDistance) {
@@ -155,7 +158,7 @@ void QuickHull::buildSimplexHull() {
 
   // Find farthest point v3
   maxDistance = -1.0;
-  for (Vertex &vertex : vertices_) {
+  for (Vertex &vertex : *vertices_) {
     if (&vertex == initialVertices[0] || &vertex == initialVertices[1] || &vertex == initialVertices[2]) continue;
     const double distance = std::abs(MZH::pointPlaneDistance(vertex.point(), initialVertices[0]->point(), v012normal));
     if (distance > maxDistance) {
@@ -165,51 +168,46 @@ void QuickHull::buildSimplexHull() {
   }
   MPxCommand::displayInfo("Found furthest point v3 " + MZH::toS(initialVertices[3]->point()) + " with distance " + maxDistance);
 
-  // Add vertices to debug vector
-  for (unsigned int i = 0; i < 4; ++i) {
-    debugVertices.push_back(initialVertices[i]);
-  }
-
   // Generate faces
   if (MZH::pointPlaneDistance(initialVertices[3]->point(), initialVertices[0]->point(), v012normal) < 0) {
     // v012plane not facing vertices[3]
-    faces_.emplace_back(Face::createTriangle(initialVertices[0], initialVertices[1], initialVertices[2]));
-    faces_.emplace_back(Face::createTriangle(initialVertices[3], initialVertices[1], initialVertices[0]));
-    faces_.emplace_back(Face::createTriangle(initialVertices[3], initialVertices[2], initialVertices[1]));
-    faces_.emplace_back(Face::createTriangle(initialVertices[3], initialVertices[0], initialVertices[2]));
+    faces_->emplace_back(Face::createTriangle(initialVertices[0], initialVertices[1], initialVertices[2]));
+    faces_->emplace_back(Face::createTriangle(initialVertices[3], initialVertices[1], initialVertices[0]));
+    faces_->emplace_back(Face::createTriangle(initialVertices[3], initialVertices[2], initialVertices[1]));
+    faces_->emplace_back(Face::createTriangle(initialVertices[3], initialVertices[0], initialVertices[2]));
 
     // Set opposite half-edges
     for (size_t i = 0; i < 3; ++i) {
       size_t j = (i + 1) % 3;
       // Link faces_[i] with faces_[0]
-      faces_[i + 1]->edge(2)->setOpposite(faces_[0]->edge((int) j));
+      (*faces_)[i + 1]->edge(2)->setOpposite((*faces_)[0]->edge((int) j));
       // Link faces_[i] with faces_[i + 1]
-      faces_[i + 1]->edge(1)->setOpposite(faces_[j + 1]->edge(0));
+      (*faces_)[i + 1]->edge(1)->setOpposite((*faces_)[j + 1]->edge(0));
     }
   } else {
     // v012plane facing vertices[3]
-    faces_.emplace_back(Face::createTriangle(initialVertices[0], initialVertices[2], initialVertices[1]));
-    faces_.emplace_back(Face::createTriangle(initialVertices[3], initialVertices[0], initialVertices[1]));
-    faces_.emplace_back(Face::createTriangle(initialVertices[3], initialVertices[1], initialVertices[2]));
-    faces_.emplace_back(Face::createTriangle(initialVertices[3], initialVertices[2], initialVertices[0]));
+    faces_->emplace_back(Face::createTriangle(initialVertices[0], initialVertices[2], initialVertices[1]));
+    faces_->emplace_back(Face::createTriangle(initialVertices[3], initialVertices[0], initialVertices[1]));
+    faces_->emplace_back(Face::createTriangle(initialVertices[3], initialVertices[1], initialVertices[2]));
+    faces_->emplace_back(Face::createTriangle(initialVertices[3], initialVertices[2], initialVertices[0]));
 
     // Set opposite half-edges
     for (size_t i = 0; i < 3; ++i) {
       size_t j = (i + 1) % 3;
       // Link faces_[i] with faces_[0]
-      faces_[i + 1]->edge(2)->setOpposite(faces_[0]->edge((int) (3 - i)));
+      (*faces_)[i + 1]->edge(2)->setOpposite((*faces_)[0]->edge((int) (3 - i)));
       // Link faces_[i] with faces_[i + 1]
-      faces_[i + 1]->edge(0)->setOpposite(faces_[j + 1]->edge(1));
+      (*faces_)[i + 1]->edge(0)->setOpposite((*faces_)[j + 1]->edge(1));
     }
   }
 
   // Assign vertices to faces
-  for (Vertex &vertex : vertices_) {
+  for (Vertex &vertex : *vertices_) {
     if (&vertex == initialVertices[0] || &vertex == initialVertices[1]
       || &vertex == initialVertices[2] || &vertex == initialVertices[3]) continue;
     maxDistance = tolerance_;
     Face *maxFace = nullptr;
-    for (std::unique_ptr<Face> &face : faces_) {
+    for (std::unique_ptr<Face> &face : *faces_) {
       const double distance = face->pointPlaneDistance(vertex.point());
       if (distance > maxDistance) {
         maxDistance = distance;
@@ -223,17 +221,9 @@ void QuickHull::buildSimplexHull() {
 }
 
 void QuickHull::clearDeletedFaces() {
-  /*for (auto it = claimed_.begin(); it != claimed_.end(); ) {
-    if ((*it)->face()->flag == Face::Flag::DELETED) {
-      it = claimed_.erase(it);
-    } else {
-      ++it;
-    }
-  }*/
-
-  for (auto it = faces_.begin(); it != faces_.end(); ) {
+  for (auto it = faces_->begin(); it != faces_->end(); ) {
     if ((*it)->flag == Face::Flag::DELETED) {
-      it = faces_.erase(it);
+      it = faces_->erase(it);
     } else {
       ++it;
     }
@@ -278,13 +268,13 @@ MStatus QuickHull::computeMinMax(Vertex *&v0, Vertex *&v1) {
   // Initialize extremes
   Vertex *extremes[3][2];
   for (unsigned int i = 0; i < 3; ++i) {
-    extremes[i][0] = &vertices_[0];
-    extremes[i][1] = &vertices_[0];
+    extremes[i][0] = &(*vertices_)[0];
+    extremes[i][1] = &(*vertices_)[0];
   }
   
   // Find axial extremes
-  for (size_t i = 0; i < vertices_.size(); ++i) {
-    Vertex &vertex = vertices_[i];
+  for (size_t i = 0; i < vertices_->size(); ++i) {
+    Vertex &vertex = (*vertices_)[i];
     for (unsigned int i = 0; i < 3; ++i) {
       if (vertex.point()[i] < extremes[i][0]->point()[i]) {
         extremes[i][0] = &vertex;
@@ -361,8 +351,9 @@ void QuickHull::deleteFaceVertices(Face *face, Face *absorbingFace) {
 }
 
 void QuickHull::initBuffers(unsigned int numPoints) {
-  vertices_.reserve(numPoints);
-  faces_.clear();
+  faces_ = std::make_shared<std::vector<std::unique_ptr<Face>>>();
+  vertices_ = std::make_shared<std::vector<Vertex>>();
+  vertices_->reserve(numPoints);
   claimed_.clear();
 }
 
@@ -412,9 +403,9 @@ void QuickHull::resolveUnclaimedPoints() {
   }
 }
 
-void QuickHull::setPoints(const MPointArray &points) {
-  for (unsigned int i = 0; i < points.length(); ++i) {
-    vertices_.push_back(Vertex(points[i]));
+void QuickHull::setPoints(MItMeshVertex &vertexIt) {
+  for (; !vertexIt.isDone(); vertexIt.next()) {
+    vertices_->push_back(Vertex(vertexIt.position(MSpace::kWorld), vertexIt.index()));
   }
 }
 
@@ -430,8 +421,8 @@ void QuickHull::addVertexToFace(Vertex *vertex, Face *face) {
 }
 
 std::shared_ptr<HalfEdge> QuickHull::addAdjoiningFace(Vertex *eyeVertex, std::shared_ptr<HalfEdge> horizonEdge) {
-  faces_.emplace_back(Face::createTriangle(eyeVertex, horizonEdge->prevVertex(), horizonEdge->vertex()));
-  Face *face = faces_.back().get();
+  faces_->emplace_back(Face::createTriangle(eyeVertex, horizonEdge->prevVertex(), horizonEdge->vertex()));
+  Face *face = faces_->back().get();
   face->edge(-1)->setOpposite(horizonEdge->opposite());
   return face->edge();
 }

@@ -42,7 +42,7 @@
     <ClCompile Include="ACDCmd.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ACDVertex.cpp">
+    <ClCompile Include="ACD.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -71,7 +71,7 @@
     <ClInclude Include="ACDCmd.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="ACDVertex.h">
+    <ClInclude Include="ACD.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

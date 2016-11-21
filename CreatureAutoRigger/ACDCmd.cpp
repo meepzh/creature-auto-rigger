@@ -4,6 +4,8 @@
 #include <maya/MItMeshVertex.h>
 #include <maya/MItSelectionList.h>
 
+#include "ACD.h"
+#include "QuickHull.h"
 #include "Utils.h"
 
 MStatus ACDCmd::doIt(const MArgList& args) {
@@ -49,8 +51,12 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
     return;
   }
 
-  displayInfo("Number of vertices: " + MZH::toS(vertexIt.count()));
-  for (; !vertexIt.isDone(); vertexIt.next()) {
-    displayInfo("Vertex " + MZH::toS(vertexIt.index()) + "/" + MZH::toS(vertexIt.count()));
+  ACD acd(vertexIt, status);
+  
+  std::shared_ptr<std::vector<Vertex>> vertices = acd.quickHull().vertices();
+  for (Vertex &vertex : *vertices) {
+    if (vertex.face()) {
+      MZH::createLocator(dgModifier, vertex.point(), "testVertex#", false);
+    }
   }
 }

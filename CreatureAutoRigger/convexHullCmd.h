@@ -19,8 +19,6 @@ public:
 protected:
   // Computes and creates a mesh representing the convex hull of the mesh associated with dagPath
   void createConvexHull(MDagPath dagPath, int maxIterations, MStatus *status);
-
-private:
   MStatus parseArgs(const MArgList &args, int &maxIterations);
 
   MDGModifier dgModifier;

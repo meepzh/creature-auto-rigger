@@ -2,6 +2,8 @@
 
 #include <maya/MArgList.h>
 #include <maya/MDagPath.h>
+#include <maya/MDagPathArray.h>
+#include <maya/MDGModifier.h>
 #include <maya/MPxCommand.h>
 
 class ACDCmd : public MPxCommand {
@@ -11,4 +13,7 @@ public:
 
 protected:
   void runACD(MDagPath dagPath, MStatus *status);
+
+  MDGModifier dgModifier;
+  MDagPathArray outputDagPaths;
 };

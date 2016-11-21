@@ -2,6 +2,7 @@
 
 #include <list>
 #include <maya/MIntArray.h>
+#include <maya/MItMeshVertex.h>
 #include <maya/MPointArray.h>
 #include <vector>
 
@@ -9,15 +10,15 @@
 
 class QuickHull {
 public:
-  QuickHull(const MPointArray &points, int maxIterations = -1, MStatus *status = nullptr);
+  QuickHull(MItMeshVertex &vertexIt, int maxIterations = -1, MStatus *status = nullptr);
   
   enum MergeType { NONCONVEX, NONCONVEX_WRT_LARGER_FACE };
 
   // Constructs the convex hull
-  MStatus build(const MPointArray &points);
+  MStatus build(MItMeshVertex &vertexIt);
   void mayaExport(int &numVertices, int &numPolygons, MPointArray &vertexArray, MIntArray &polygonCounts, MIntArray &polygonConnects);
-
-  std::vector<Vertex *> debugVertices;
+  std::shared_ptr<std::vector<std::unique_ptr<Face>>> faces();
+  std::shared_ptr<std::vector<Vertex>> vertices();
 
 protected:
   void addNewFaces(Vertex *eyeVertex);
@@ -33,12 +34,12 @@ protected:
   Vertex *nextVertexToAdd();
   double oppositeFaceDistance(HalfEdge *he) const;
   void resolveUnclaimedPoints();
-  void setPoints(const MPointArray &points);
+  void setPoints(MItMeshVertex &vertexIt);
 
-  std::vector<std::unique_ptr<Face>> faces_;
+  std::shared_ptr<std::vector<std::unique_ptr<Face>>> faces_;
   std::vector<std::shared_ptr<HalfEdge>> horizon_;
   int maxIterations_;
-  std::vector<Vertex> vertices_;
+  std::shared_ptr<std::vector<Vertex>> vertices_;
   double tolerance_;
 
 private:

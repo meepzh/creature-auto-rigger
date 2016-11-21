@@ -61,27 +61,18 @@ MSyntax ConvexHullCmd::newSyntax() {
 }
 
 void ConvexHullCmd::createConvexHull(MDagPath dagPath, int maxIterations, MStatus *status) {
-  // Get target's points
-  MFnMesh target(dagPath, status);
-  if (MZH::hasError(*status, "Failed to get mesh")) return;
-  MPointArray targetPoints;
-  *status = target.getPoints(targetPoints, MSpace::kWorld);
-  if (MZH::hasError(*status, "Failed to get mesh points")) return;
+  MItMeshVertex vertexIt(dagPath, MObject::kNullObj, status);
+  if (MZH::hasError(*status, "Failed to get vertex iterator")) return;
   
   // Check point array
-  if (targetPoints.length() < 4) {
+  if (vertexIt.count() < 4) {
     displayError("Not enough vertices in mesh");
     return;
   }
 
   // Generate convex hull
-  QuickHull qc(targetPoints, maxIterations, status);
+  QuickHull qc(vertexIt, maxIterations, status);
   if (MZH::hasError(*status, "Error running QuickHull")) return;
-
-  // Debug vertices
-  /*for (auto it = qc.debugVertices.begin(); it != qc.debugVertices.end(); ++it) {
-    MZH::createLocator(dgModifier, (*it)->point(), MString("v#"), false);
-  }*/
 
   // Export from QuickHull
   int numVertices = 0;
