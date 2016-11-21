@@ -261,6 +261,18 @@ void Face::setOutside(std::list<Vertex *>::iterator outside) {
   outside_ = outside;
 }
 
+std::vector<Vertex *> Face::vertices() const {
+  std::vector<Vertex *> vertices;
+  std::shared_ptr<HalfEdge> curEdge = edge_;
+
+  do {
+    vertices.push_back(curEdge->vertex());
+    curEdge = curEdge->next();
+  } while (curEdge != edge_);
+
+  return vertices;
+}
+
 std::unique_ptr<Face> Face::createTriangle(Vertex *v0, Vertex *v1, Vertex *v2, double minArea) {
   std::unique_ptr<Face> face(new Face);
 

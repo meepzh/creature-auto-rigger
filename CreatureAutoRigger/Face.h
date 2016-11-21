@@ -35,6 +35,7 @@ public:
   unsigned int numVertices() const;
   std::list<Vertex *>::iterator outside() const;
   void setOutside(std::list<Vertex *>::iterator outside);
+  std::vector<Vertex *> vertices() const;
 
   Flag flag;
 

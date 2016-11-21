@@ -17,6 +17,7 @@ public:
   // Constructs the convex hull
   MStatus build(MItMeshVertex &vertexIt);
   void mayaExport(int &numVertices, int &numPolygons, MPointArray &vertexArray, MIntArray &polygonCounts, MIntArray &polygonConnects);
+
   std::shared_ptr<std::vector<std::unique_ptr<Face>>> faces();
   std::shared_ptr<std::vector<Vertex>> vertices();
 

@@ -53,10 +53,21 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
 
   ACD acd(vertexIt, status);
   
-  std::shared_ptr<std::vector<Vertex>> vertices = acd.quickHull().vertices();
-  for (Vertex &vertex : *vertices) {
-    if (vertex.face()) {
-      MZH::createLocator(dgModifier, vertex.point(), "testVertex#", false);
+  std::shared_ptr<std::vector<std::unique_ptr<Face>>> faces = acd.quickHull().faces();
+  std::vector<bool> vertexSeen;
+  vertexSeen.resize(vertexIt.count(), false);
+
+  for (std::unique_ptr<Face> &face : *faces) {
+    std::vector<Vertex *> faceVertices = face->vertices();
+    for (Vertex *vertex : faceVertices) {
+      if (!vertexSeen[vertex->index()]) {
+        vertexSeen[vertex->index()] = true;
+        *status = MZH::createLocator(dgModifier, vertex->point(), "hullVertex#", false);
+        if (MZH::hasError(*status, "Error creating hull vertex locator")) return;
+      }
     }
   }
+
+  *status = dgModifier.doIt();
+  if (MZH::hasError(*status, "Error running dag modifier")) return;
 }
