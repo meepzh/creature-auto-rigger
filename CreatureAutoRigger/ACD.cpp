@@ -89,7 +89,24 @@ void ACD::projectHullEdges() {
     projectedEdges_.insert(std::make_pair(source, std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>>()));
     auto &edgeMap = projectedEdges_.at(source);
 
-    if (targets.empty()) return;
+    // Remove targets that have already been resolved
+    for (auto targetIt = targets.begin(); targetIt != targets.end();) {
+      auto edgeMapIt = projectedEdges_.find(*targetIt);
+      if (edgeMapIt != projectedEdges_.end()) {
+        auto pathIt = edgeMapIt->second.find(source);
+        if (pathIt == edgeMapIt->second.end()) {
+          // Copy
+          edgeMap.insert(std::make_pair(*targetIt, pathIt->second));
+          // Erase
+          targetIt = targets.erase(targetIt);
+          continue; // Skip increment
+        }
+      }
+      ++targetIt;
+    }
+    std::vector<Vertex *> missingTargets = targets;
+
+    if (missingTargets.empty()) return;
 
     std::vector<double> distances;
     std::vector<const Vertex *> previouses;
@@ -106,10 +123,10 @@ void ACD::projectHullEdges() {
       queue.pop();
       
       // Check with targets
-      auto it = std::find(targets.begin(), targets.end(), closest);
-      if (it != targets.end()) {
-        targets.erase(it);
-        if (targets.empty()) break;
+      auto it = std::find(missingTargets.begin(), missingTargets.end(), closest);
+      if (it != missingTargets.end()) {
+        missingTargets.erase(it);
+        if (missingTargets.empty()) break;
       }
 
       double distance = distances[closest->index()];
@@ -126,8 +143,8 @@ void ACD::projectHullEdges() {
     } //end-while
 
     // Extract paths to targets
-    targets = hullNeighbors_.at(source);
-    for (Vertex *target : targets) {
+    missingTargets = targets;
+    for (Vertex *target : missingTargets) {
       std::shared_ptr<std::vector<Vertex *>> projectedEdge = std::make_shared<std::vector<Vertex *>>();
       projectedEdge->push_back(target);
 
