@@ -49,11 +49,12 @@ void ACD::getHullVertices() {
 
     do {
       Vertex *vertex = curEdge->vertex();
-      if (vertexSeen[vertex->index()]) continue;
 
-      vertexSeen[vertex->index()] = true;
-      hullVertices_.push_back(vertex);
-      hullNeighbors_.insert(std::make_pair(vertex, curEdge->getNeighbors()));
+      if (!vertexSeen[vertex->index()]) {
+        vertexSeen[vertex->index()] = true;
+        hullVertices_.push_back(vertex);
+        hullNeighbors_.insert(std::make_pair(vertex, curEdge->getNeighbors()));
+      }
 
       curEdge = curEdge->next();
     } while (curEdge != faceEdge);
@@ -69,12 +70,14 @@ void ACD::getNeighbors(MItMeshVertex &vertexIt) {
   MIntArray neighborIndices;
   for (; !vertexIt.isDone(); vertexIt.next()) {
     std::vector<Vertex *> neighbors;
+
     vertexIt.getConnectedVertices(neighborIndices);
     for (unsigned int i = 0; i < neighborIndices.length(); ++i) {
       neighbors.push_back(&(*vertices_)[neighborIndices[i]]);
     }
+
     neighbors.shrink_to_fit();
-    neighbors_.push_back(neighbors);
+    neighbors_[vertexIt.index()] = neighbors;
   }
 }
 
@@ -83,8 +86,8 @@ void ACD::projectHullEdges() {
     std::vector<Vertex *> targets = hullNeighbors_.at(source); // Copy, will modify
 
     // Create projectedEdges_
-    std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>> edgeMap;
-    projectedEdges_.insert(std::make_pair(source, edgeMap));
+    projectedEdges_.insert(std::make_pair(source, std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>>()));
+    auto &edgeMap = projectedEdges_.at(source);
 
     if (targets.empty()) return;
 
