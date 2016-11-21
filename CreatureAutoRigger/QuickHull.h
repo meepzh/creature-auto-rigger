@@ -35,7 +35,7 @@ protected:
   Vertex *nextVertexToAdd();
   double oppositeFaceDistance(HalfEdge *he) const;
   void resolveUnclaimedPoints();
-  void setPoints(MItMeshVertex &vertexIt);
+  MStatus setPoints(MItMeshVertex &vertexIt);
 
   std::shared_ptr<std::vector<std::unique_ptr<Face>>> faces_;
   std::vector<std::shared_ptr<HalfEdge>> horizon_;

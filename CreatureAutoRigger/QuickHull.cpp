@@ -15,17 +15,20 @@ QuickHull::QuickHull(MItMeshVertex &vertexIt, int maxIterations, MStatus *status
 }
 
 MStatus QuickHull::build(MItMeshVertex &vertexIt) {
+  MStatus returnStatus;
+
   if (vertexIt.count() < 4) {
-    MStatus returnStatus(MS::kFailure);
+    returnStatus = MS::kFailure;
     returnStatus.perror("At least 4 points required");
     return returnStatus;
   }
 
   initBuffers(vertexIt.count());
-  setPoints(vertexIt);
+  returnStatus = setPoints(vertexIt);
+  if (MZH::hasError(returnStatus, "Bad assumption with vertex indices")) return returnStatus;
   buildHull();
 
-  return MS::kSuccess;
+  return returnStatus;
 }
 
 void QuickHull::mayaExport(int &numVertices, int &numPolygons, MPointArray &vertexArray, MIntArray &polygonCounts, MIntArray &polygonConnects) {
@@ -403,10 +406,14 @@ void QuickHull::resolveUnclaimedPoints() {
   }
 }
 
-void QuickHull::setPoints(MItMeshVertex &vertexIt) {
+MStatus QuickHull::setPoints(MItMeshVertex &vertexIt) {
+  int counter = 0;
   for (; !vertexIt.isDone(); vertexIt.next()) {
+    if (vertexIt.index() != counter) return MS::kFailure;
     vertices_->push_back(Vertex(vertexIt.position(MSpace::kWorld), vertexIt.index()));
+    ++counter;
   }
+  return MS::kSuccess;
 }
 
 void QuickHull::addVertexToFace(Vertex *vertex, Face *face) {
