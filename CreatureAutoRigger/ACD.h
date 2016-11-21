@@ -10,6 +10,7 @@ public:
   ACD(MItMeshVertex &vertexIt, MStatus *status = nullptr);
 
   std::vector<Vertex *> &hullVertices();
+  pEdgeMap &projectedEdges();
   QuickHull &quickHull();
 
 protected:
@@ -18,8 +19,9 @@ protected:
   void projectHullEdges();
 
   std::vector<Vertex *> hullVertices_;
-  std::unordered_map<Vertex *, std::vector<Vertex *>> neighbors_;
-  pEdgeMap projectedEdges;
+  std::unordered_map<Vertex *, std::vector<Vertex *>> hullNeighbors_;
+  std::vector<std::vector<Vertex *>> neighbors_;
+  pEdgeMap projectedEdges_;
   QuickHull quickHull_;
   std::shared_ptr<std::vector<Vertex>> vertices_;
 };

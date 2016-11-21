@@ -52,14 +52,26 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
   }
 
   ACD acd(vertexIt, status);
+
+  /*
   std::vector<Vertex *> &hullVertices = acd.hullVertices();
   for (Vertex *vertex : hullVertices) {
     *status = MZH::createLocator(dgModifier, vertex->point(), "hullVertex#", false);
     if (MZH::hasError(*status, "Error creating hull vertex locator")) return;
   }
+  */
+
+  pEdgeMap &projectedEdges = acd.projectedEdges();
+  for (auto it1 = projectedEdges.begin(); it1 != projectedEdges.end(); ++it1) {
+    std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>> &edgeMap = it1->second;
+    for (auto it2 = it1->second.begin(); it2 != it1->second.end(); ++it2) {
+      for (Vertex *vertex : *(it2->second)) {
+        *status = MZH::createLocator(dgModifier, vertex->point(), "projectedVertex#", false);
+        if (MZH::hasError(*status, "Error creating hull vertex locator")) return;
+      }
+    }
+  }
 
   *status = dgModifier.doIt();
   if (MZH::hasError(*status, "Error running dag modifier")) return;
-
-
 }

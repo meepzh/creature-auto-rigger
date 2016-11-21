@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 #include "Vertex.h"
 
 class Face;
@@ -22,6 +23,8 @@ public:
   void setFace(Face *face);
   void setNext(std::shared_ptr<HalfEdge> next);
   void setOpposite(std::weak_ptr<HalfEdge> opposite);
+  
+  std::vector<Vertex *> getNeighbors();
 
 private:
   Face *face_;

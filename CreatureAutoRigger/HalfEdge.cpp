@@ -54,3 +54,18 @@ void HalfEdge::setOpposite(std::weak_ptr<HalfEdge> opposite) {
   opposite_ = opposite;
   opposite_.lock()->opposite_ = shared_from_this();
 }
+
+std::vector<Vertex *> HalfEdge::getNeighbors() {
+  std::vector<Vertex *> neighbors;
+
+  std::shared_ptr<HalfEdge> endEdge = next_;
+  std::shared_ptr<HalfEdge> curEdge = endEdge;
+
+  do {
+    neighbors.push_back(curEdge->vertex());
+    curEdge = curEdge->opposite().lock()->next();
+  } while (curEdge != endEdge);
+
+  neighbors.shrink_to_fit();
+  return neighbors;
+}
