@@ -10,7 +10,9 @@ class ACD {
 public:
   ACD(MItMeshVertex &vertexIt, MStatus *status = nullptr);
 
+  std::vector<double> &convexities();
   std::vector<Vertex *> &hullVertices();
+  double maxConvexity();
   pEdgeMap &projectedEdges();
   QuickHull &quickHull();
   std::vector<Face *> &vertexBridges();
@@ -25,6 +27,7 @@ protected:
   std::vector<double> convexities_;
   std::vector<Vertex *> hullVertices_;
   std::unordered_map<Vertex *, std::vector<Vertex *>> hullNeighbors_;
+  double maxConvexity_;
   std::vector<std::vector<Vertex *>> neighbors_;
   pEdgeMap projectedEdges_;
   QuickHull quickHull_;

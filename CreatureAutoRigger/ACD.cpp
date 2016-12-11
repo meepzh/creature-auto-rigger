@@ -1,6 +1,7 @@
 #include "ACD.h"
 
 #include <algorithm>
+#include <iterator>
 #include <maya/MPxCommand.h>
 #include <queue>
 #include "Utils.h"
@@ -14,7 +15,7 @@ struct queuePairComparator {
 };
 
 ACD::ACD(MItMeshVertex &vertexIt, MStatus *status)
-    : quickHull_(vertexIt, -1, &returnStatus_) {
+    : quickHull_(vertexIt, -1, &returnStatus_), maxConvexity_(0) {
   if (MZH::hasError(returnStatus_, "Error running QuickHull")) return;
 
   vertices_ = quickHull_.vertices();
@@ -34,8 +35,16 @@ ACD::ACD(MItMeshVertex &vertexIt, MStatus *status)
   if (status) *status = returnStatus_;
 }
 
+std::vector<double> &ACD::convexities() {
+  return convexities_;
+}
+
 std::vector<Vertex *> &ACD::hullVertices() {
   return hullVertices_;
+}
+
+double ACD::maxConvexity() {
+  return maxConvexity_;
 }
 
 pEdgeMap &ACD::projectedEdges() {
@@ -167,7 +176,10 @@ void ACD::projectHullEdges() {
       // Get potential bridge faces
       std::set<Face *> &targetBridges = vertexBridgeList_[target];
       std::set<Face *> pairBridges;
-      std::set_intersection(sourceBridges.begin(), sourceBridges.end(), targetBridges.begin(), targetBridges.end(), pairBridges.begin());
+      std::set_intersection(sourceBridges.begin(), sourceBridges.end(),
+        targetBridges.begin(), targetBridges.end(),
+        std::inserter(pairBridges, pairBridges.end())
+      );
 
       const Vertex *curVertex = previouses[target->index()];
       while (curVertex != source) {
@@ -228,9 +240,14 @@ void ACD::matchPointsToBridge() {
       auto vertexBridgeListIt = vertexBridgeList_.find(vertex);
       if (vertexBridgeListIt != vertexBridgeList_.end()) {
         if (initedBridges) {
-          bridges.erase(std::remove_if(bridges.begin(), bridges.end(), [&vertexBridgeListIt](Face* const &face){
-            return vertexBridgeListIt->second.find(face) == vertexBridgeListIt->second.end();
-          }));
+          for (auto it = bridges.begin(); it != bridges.end();) {
+            // Erase faces that aren't shared
+            if (vertexBridgeListIt->second.find(*it) == vertexBridgeListIt->second.end()) {
+              it = bridges.erase(it);
+            } else {
+              ++it;
+            }
+          }
           continue;
         } else {
           bridges.insert(vertexBridgeListIt->second.begin(), vertexBridgeListIt->second.end());
@@ -278,5 +295,7 @@ void ACD::calculateConvexities() {
 
     convexities_[vertex.index()] = minConvexity;
     vertexBridges_[vertex.index()] = bridge;
+
+    if (minConvexity > maxConvexity_) maxConvexity_ = minConvexity;
   } //end-foreach vertices
 }

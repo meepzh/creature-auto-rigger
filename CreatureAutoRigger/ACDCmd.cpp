@@ -62,6 +62,7 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
   }
   */
 
+  // Draw projected hull edges
   MFnNurbsCurve nurbsFn;
   pEdgeMap &projectedEdges = acd.projectedEdges();
   for (auto it1 = projectedEdges.begin(); it1 != projectedEdges.end(); ++it1) {
@@ -85,6 +86,9 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
       *status = dgModifier.renameNode(curve, "dijkstraPath#");
     }
   }
+
+  // Color convexities
+  MPxCommand::displayInfo("Max convexity: " + MZH::toS(acd.maxConvexity()));
 
   *status = dgModifier.doIt();
   if (MZH::hasError(*status, "Error running dag modifier")) return;
