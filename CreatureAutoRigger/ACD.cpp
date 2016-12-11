@@ -1,6 +1,7 @@
 #include "ACD.h"
 
 #include <algorithm>
+#include <maya/MPxCommand.h>
 #include <queue>
 #include "Utils.h"
 
@@ -8,13 +9,13 @@ typedef std::pair<const Vertex *, double> queuePair;
 
 struct queuePairComparator {
   bool operator()(const queuePair &a, const queuePair &b) {
-    return a > b;
+    return a.second > b.second;
   }
 };
 
 ACD::ACD(MItMeshVertex &vertexIt, MStatus *status)
-    : quickHull_(vertexIt, -1, status) {
-  if (MZH::hasError(*status, "Error running QuickHull")) return;
+    : quickHull_(vertexIt, -1, &returnStatus_) {
+  if (MZH::hasError(returnStatus_, "Error running QuickHull")) return;
 
   vertices_ = quickHull_.vertices();
 
@@ -24,6 +25,13 @@ ACD::ACD(MItMeshVertex &vertexIt, MStatus *status)
   getHullVertices();
   getNeighbors(vertexIt);
   projectHullEdges();
+  if (MZH::hasError(returnStatus_, "Error projecting hull edges")) return;
+  matchPointsToBridge();
+  if (MZH::hasError(returnStatus_, "Error matching points to a bridge")) return;
+  calculateConvexities();
+  if (MZH::hasError(returnStatus_, "Error calculating convexities")) return;
+
+  if (status) *status = returnStatus_;
 }
 
 std::vector<Vertex *> &ACD::hullVertices() {
@@ -38,6 +46,10 @@ QuickHull &ACD::quickHull() {
   return quickHull_;
 }
 
+std::vector<Face *> &ACD::vertexBridges() {
+  return vertexBridges_;
+}
+
 void ACD::getHullVertices() {
   std::shared_ptr<std::vector<std::unique_ptr<Face>>> faces = quickHull_.faces();
   std::vector<bool> vertexSeen;
@@ -46,9 +58,12 @@ void ACD::getHullVertices() {
   for (std::unique_ptr<Face> &face : *faces) {
     std::shared_ptr<HalfEdge> faceEdge = face->edge();
     std::shared_ptr<HalfEdge> curEdge = faceEdge;
+    Face *facePtr = face.get();
 
     do {
       Vertex *vertex = curEdge->vertex();
+      std::set<Face *> &bridges = vertexBridgeList_[vertex];
+      if (bridges.find(facePtr) == bridges.end()) bridges.insert(facePtr);
 
       if (!vertexSeen[vertex->index()]) {
         vertexSeen[vertex->index()] = true;
@@ -84,6 +99,7 @@ void ACD::getNeighbors(MItMeshVertex &vertexIt) {
 void ACD::projectHullEdges() {
   for (Vertex *source : hullVertices_) {
     std::vector<Vertex *> targets = hullNeighbors_.at(source); // Copy, will modify
+    std::set<Face *> &sourceBridges = vertexBridgeList_[source];
 
     // Create projectedEdges_
     projectedEdges_.insert(std::make_pair(source, std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>>()));
@@ -148,9 +164,25 @@ void ACD::projectHullEdges() {
       std::shared_ptr<std::vector<Vertex *>> projectedEdge = std::make_shared<std::vector<Vertex *>>();
       projectedEdge->push_back(target);
 
+      // Get potential bridge faces
+      std::set<Face *> &targetBridges = vertexBridgeList_[target];
+      std::set<Face *> pairBridges;
+      std::set_intersection(sourceBridges.begin(), sourceBridges.end(), targetBridges.begin(), targetBridges.end(), pairBridges.begin());
+
       const Vertex *curVertex = previouses[target->index()];
       while (curVertex != source) {
         projectedEdge->push_back(const_cast<Vertex *>(curVertex));
+        std::set<Face *> &curBridges = vertexBridgeList_[const_cast<Vertex *>(curVertex)];
+        curBridges.insert(pairBridges.begin(), pairBridges.end());
+        
+        if (previouses[curVertex->index()] == nullptr) {
+          // Couldn't find path...
+          MPxCommand::displayError("Could not find path for vertex " + MZH::toS(curVertex->index())
+            + " to target " + MZH::toS(target->index())
+            + " from source " + MZH::toS(source->index()));
+          returnStatus_ = MS::kFailure;
+          return;
+        }
         curVertex = previouses[curVertex->index()];
       }
       projectedEdge->push_back(source);
@@ -159,4 +191,92 @@ void ACD::projectHullEdges() {
       edgeMap.insert(std::make_pair(target, projectedEdge));
     } //end-foreach target
   } //end-foreach hullVertex
+}
+
+void ACD::matchPointsToBridge() {
+  std::queue<Vertex *> queue;
+  std::vector<Vertex *> visited;
+
+  for (Vertex &curVertex : *vertices_) {
+    if (vertexBridgeList_.find(&curVertex) != vertexBridgeList_.end()) continue;
+
+    std::vector<bool> vertexSeen;
+    vertexSeen.resize(vertices_->size(), false);
+    vertexSeen[curVertex.index()] = true;
+
+    std::set<Face *> bridges;
+    queue.push(&curVertex);
+    visited.clear();
+    bool initedBridges = false;
+
+    while (!queue.empty()) {
+      Vertex *vertex = queue.front();
+      queue.pop();
+      
+      // Skip visited
+      if (vertexSeen[vertex->index()]) continue;
+      vertexSeen[vertex->index()] = true;
+
+      if (initedBridges && bridges.empty()) {
+        // Should not be empty
+        MPxCommand::displayError("Bridges emptied for vertex " + MZH::toS(curVertex.index()));
+        returnStatus_ = MS::kFailure;
+        return;
+      }
+
+      // Add known connected bridges
+      auto vertexBridgeListIt = vertexBridgeList_.find(vertex);
+      if (vertexBridgeListIt != vertexBridgeList_.end()) {
+        if (initedBridges) {
+          bridges.erase(std::remove_if(bridges.begin(), bridges.end(), [&vertexBridgeListIt](Face* const &face){
+            return vertexBridgeListIt->second.find(face) == vertexBridgeListIt->second.end();
+          }));
+          continue;
+        } else {
+          bridges.insert(vertexBridgeListIt->second.begin(), vertexBridgeListIt->second.end());
+          initedBridges = true;
+        }
+      }
+      
+      visited.push_back(vertex);
+
+      // Add neighbors
+      std::vector<Vertex *> &neighbors = neighbors_[vertex->index()];
+      for (Vertex *neighbor : neighbors) {
+        if (!vertexSeen[vertex->index()]) queue.push(neighbor);
+      }
+    } //end-while !queue.empty()
+
+    // Set vertex bridge faces
+    for (Vertex *vertex : visited) {
+      vertexBridgeList_[vertex] = bridges;
+    }
+  }
+}
+
+void ACD::calculateConvexities() {
+  convexities_.resize(vertices_->size(), 0);
+  vertexBridges_.resize(vertices_->size(), nullptr);
+
+  for (Vertex &vertex : *vertices_) {
+    auto vertexBridgeListIt = vertexBridgeList_.find(&vertex);
+    if (vertexBridgeListIt == vertexBridgeList_.end()) {
+      MPxCommand::displayError("No bridge faces found for " + MZH::toS(vertex.index()));
+      returnStatus_ = MS::kFailure;
+      return;
+    }
+
+    // Find smallest convexity
+    double minConvexity = std::numeric_limits<double>::infinity();
+    Face *bridge = nullptr;
+    for (Face *bridgeCandidate : vertexBridgeListIt->second) {
+      const double convexity = bridgeCandidate->pointPlaneDistance(vertex.point());
+      if (convexity >= minConvexity) break;
+      minConvexity = convexity;
+      bridge = bridgeCandidate;
+    }
+
+    convexities_[vertex.index()] = minConvexity;
+    vertexBridges_[vertex.index()] = bridge;
+  } //end-foreach vertices
 }

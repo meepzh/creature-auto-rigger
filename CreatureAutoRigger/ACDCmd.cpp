@@ -1,5 +1,6 @@
 #include "ACDCmd.h"
 
+#include <maya/MFnNurbsCurve.h>
 #include <maya/MGlobal.h>
 #include <maya/MItMeshVertex.h>
 #include <maya/MItSelectionList.h>
@@ -61,17 +62,27 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
   }
   */
 
+  MFnNurbsCurve nurbsFn;
   pEdgeMap &projectedEdges = acd.projectedEdges();
   for (auto it1 = projectedEdges.begin(); it1 != projectedEdges.end(); ++it1) {
     std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>> &edgeMap = it1->second;
+
     for (auto it2 = it1->second.begin(); it2 != it1->second.end(); ++it2) {
       std::shared_ptr<std::vector<Vertex *>> &path = it2->second;
-      for (size_t i = 0; i < path->size() - 1; ++i) {
-        MZH::createLocator(dgModifier, (*path)[i]->point(), "projectedVertex#", false);
-        MZH::createLocator(dgModifier, (*path)[i]->point() * 0.34 + (*path)[i + 1]->point() * 0.66, "projectedVertex#", false);
-        MZH::createLocator(dgModifier, (*path)[i]->point() * 0.66 + (*path)[i + 1]->point() * 0.34, "projectedVertex#", false);
-        MZH::createLocator(dgModifier, (*path)[i + 1]->point(), "projectedVertex#", false);
+
+      MPointArray controlVerts;
+      MDoubleArray knots;
+      double time = 0;
+      
+      for (size_t i = 0; i < path->size(); ++i) {
+        controlVerts.append((*path)[i]->point());
+        knots.append(time++);
       }
+      controlVerts.append((*path)[0]->point());
+      knots.append(time++);
+      
+      MObject curve = nurbsFn.create(controlVerts, knots, (unsigned int) 1, MFnNurbsCurve::kClosed, false, false, MObject::kNullObj, status);
+      *status = dgModifier.renameNode(curve, "dijkstraPath#");
     }
   }
 
