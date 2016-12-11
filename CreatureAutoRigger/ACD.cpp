@@ -72,7 +72,7 @@ void ACD::getHullVertices() {
     do {
       Vertex *vertex = curEdge->vertex();
       std::set<Face *> &bridges = vertexBridgeList_[vertex];
-      if (bridges.find(facePtr) == bridges.end()) bridges.insert(facePtr);
+      bridges.insert(facePtr);
 
       if (!vertexSeen[vertex->index()]) {
         vertexSeen[vertex->index()] = true;
@@ -83,7 +83,7 @@ void ACD::getHullVertices() {
       curEdge = curEdge->next();
     } while (curEdge != faceEdge);
   }
-
+  
   hullVertices_.shrink_to_fit();
 }
 
@@ -181,6 +181,13 @@ void ACD::projectHullEdges() {
         std::inserter(pairBridges, pairBridges.end())
       );
 
+      if (pairBridges.empty()) {
+        MPxCommand::displayError("No shared faces between target " + MZH::toS(target->index())
+          + " and source " + MZH::toS(source->index()));
+        returnStatus_ = MS::kFailure;
+        return;
+      }
+
       const Vertex *curVertex = previouses[target->index()];
       while (curVertex != source) {
         projectedEdge->push_back(const_cast<Vertex *>(curVertex));
@@ -212,9 +219,10 @@ void ACD::matchPointsToBridge() {
   for (Vertex &curVertex : *vertices_) {
     if (vertexBridgeList_.find(&curVertex) != vertexBridgeList_.end()) continue;
 
+    int index = curVertex.index();
+
     std::vector<bool> vertexSeen;
     vertexSeen.resize(vertices_->size(), false);
-    vertexSeen[curVertex.index()] = true;
 
     std::set<Face *> bridges;
     queue.push(&curVertex);
@@ -248,11 +256,11 @@ void ACD::matchPointsToBridge() {
               ++it;
             }
           }
-          continue;
         } else {
           bridges.insert(vertexBridgeListIt->second.begin(), vertexBridgeListIt->second.end());
           initedBridges = true;
         }
+        continue;
       }
       
       visited.push_back(vertex);
@@ -260,15 +268,21 @@ void ACD::matchPointsToBridge() {
       // Add neighbors
       std::vector<Vertex *> &neighbors = neighbors_[vertex->index()];
       for (Vertex *neighbor : neighbors) {
-        if (!vertexSeen[vertex->index()]) queue.push(neighbor);
+        if (!vertexSeen[neighbor->index()]) queue.push(neighbor);
       }
     } //end-while !queue.empty()
+
+    if (bridges.empty()) {
+      MPxCommand::displayError("No bridge faces for vertex " + MZH::toS(curVertex.index()));
+      returnStatus_ = MS::kFailure;
+      return;
+    }
 
     // Set vertex bridge faces
     for (Vertex *vertex : visited) {
       vertexBridgeList_[vertex] = bridges;
     }
-  }
+  } //end-foreach vertices
 }
 
 void ACD::calculateConvexities() {
@@ -277,8 +291,9 @@ void ACD::calculateConvexities() {
 
   for (Vertex &vertex : *vertices_) {
     auto vertexBridgeListIt = vertexBridgeList_.find(&vertex);
+
     if (vertexBridgeListIt == vertexBridgeList_.end()) {
-      MPxCommand::displayError("No bridge faces found for " + MZH::toS(vertex.index()));
+      MPxCommand::displayError("No bridge face list created for vertex " + MZH::toS(vertex.index()));
       returnStatus_ = MS::kFailure;
       return;
     }
@@ -287,7 +302,7 @@ void ACD::calculateConvexities() {
     double minConvexity = std::numeric_limits<double>::infinity();
     Face *bridge = nullptr;
     for (Face *bridgeCandidate : vertexBridgeListIt->second) {
-      const double convexity = bridgeCandidate->pointPlaneDistance(vertex.point());
+      const double convexity = -1 * bridgeCandidate->pointPlaneDistance(vertex.point());
       if (convexity >= minConvexity) break;
       minConvexity = convexity;
       bridge = bridgeCandidate;
