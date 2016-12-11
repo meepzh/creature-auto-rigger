@@ -6,7 +6,12 @@
 #include <maya/MString.h>
 
 namespace MZH {
-  // Craetes a locator using the spaceLocator command
+  template <typename T>
+  T clamp(const T &number, const T &lower, const T &upper) {
+    return std::max(lower, std::min(number, upper));
+  }
+
+  // Creates a locator using the spaceLocator command
   MStatus createLocator(MDGModifier &dgModifier, const MPoint &position, const MString &name, bool relative = true);
 
   // Returns true if status is not MS::kSuccess.

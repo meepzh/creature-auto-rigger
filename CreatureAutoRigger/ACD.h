@@ -10,6 +10,7 @@ class ACD {
 public:
   ACD(MItMeshVertex &vertexIt, MStatus *status = nullptr);
 
+  double averageConvexity();
   std::vector<double> &convexities();
   std::vector<Vertex *> &hullVertices();
   double maxConvexity();
@@ -24,6 +25,7 @@ protected:
   void matchPointsToBridge();
   void calculateConvexities();
 
+  double averageConvexity_;
   std::vector<double> convexities_;
   std::vector<Vertex *> hullVertices_;
   std::unordered_map<Vertex *, std::vector<Vertex *>> hullNeighbors_;

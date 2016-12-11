@@ -15,7 +15,7 @@ struct queuePairComparator {
 };
 
 ACD::ACD(MItMeshVertex &vertexIt, MStatus *status)
-    : quickHull_(vertexIt, -1, &returnStatus_), maxConvexity_(0) {
+    : quickHull_(vertexIt, -1, &returnStatus_), averageConvexity_(0), maxConvexity_(0) {
   if (MZH::hasError(returnStatus_, "Error running QuickHull")) return;
 
   vertices_ = quickHull_.vertices();
@@ -33,6 +33,10 @@ ACD::ACD(MItMeshVertex &vertexIt, MStatus *status)
   if (MZH::hasError(returnStatus_, "Error calculating convexities")) return;
 
   if (status) *status = returnStatus_;
+}
+
+double ACD::averageConvexity() {
+  return averageConvexity_;
 }
 
 std::vector<double> &ACD::convexities() {
@@ -288,6 +292,7 @@ void ACD::matchPointsToBridge() {
 void ACD::calculateConvexities() {
   convexities_.resize(vertices_->size(), 0);
   vertexBridges_.resize(vertices_->size(), nullptr);
+  averageConvexity_ = 0;
 
   for (Vertex &vertex : *vertices_) {
     auto vertexBridgeListIt = vertexBridgeList_.find(&vertex);
@@ -312,5 +317,8 @@ void ACD::calculateConvexities() {
     vertexBridges_[vertex.index()] = bridge;
 
     if (minConvexity > maxConvexity_) maxConvexity_ = minConvexity;
+    averageConvexity_ += minConvexity;
   } //end-foreach vertices
+
+  averageConvexity_ /= vertices_->size();
 }

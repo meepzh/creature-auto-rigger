@@ -1,5 +1,6 @@
 #include "ACDCmd.h"
 
+#include <maya/MFnMesh.h>
 #include <maya/MFnNurbsCurve.h>
 #include <maya/MGlobal.h>
 #include <maya/MItMeshVertex.h>
@@ -86,9 +87,28 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
       *status = dgModifier.renameNode(curve, "dijkstraPath#");
     }
   }
+  
+  // Convexities prep
+  MFnMesh meshFn(dagPath, status);
+  if (MZH::hasError(*status, "Error converting selection to mesh")) return;
+
+  std::vector<double> &convexities = acd.convexities();
+  MPxCommand::displayInfo("Average convexity: " + MZH::toS(acd.averageConvexity()));
+  MPxCommand::displayInfo("Max convexity: " + MZH::toS(acd.maxConvexity()));
+
+  MColorArray convexityColors;
+  MIntArray vertexIndices;
 
   // Color convexities
-  MPxCommand::displayInfo("Max convexity: " + MZH::toS(acd.maxConvexity()));
+  int convexityCounter = 0;
+  double convexityBlack = (acd.averageConvexity() + acd.maxConvexity()) / 2.0;
+  for (double convexity : convexities) {
+    float lightness = (float) MZH::clamp(1.0 - convexity / convexityBlack, 0.0, 1.0);
+    convexityColors.append(lightness, lightness, lightness);
+    vertexIndices.append(convexityCounter++);
+  }
+  *status = meshFn.setVertexColors(convexityColors, vertexIndices, &dgModifier);
+  if (MZH::hasError(*status, "Error adding step to color convexities")) return;
 
   *status = dgModifier.doIt();
   if (MZH::hasError(*status, "Error running dag modifier")) return;
