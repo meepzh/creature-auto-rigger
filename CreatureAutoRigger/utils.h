@@ -3,14 +3,12 @@
 #include <maya/MFloatPoint.h>
 #include <maya/MDGModifier.h>
 #include <maya/MPoint.h>
+#include <maya/MPointArray.h>
 #include <maya/MString.h>
 
 namespace MZH {
-  template <typename T>
-  T clamp(const T &number, const T &lower, const T &upper) {
-    return std::max(lower, std::min(number, upper));
-  }
-
+  void copy(MPointArray &to, const MPointArray &from);
+  
   // Creates a locator using the spaceLocator command
   MStatus createLocator(MDGModifier &dgModifier, const MPoint &position, const MString &name, bool relative = true);
 
@@ -20,6 +18,9 @@ namespace MZH {
 
   // Sets a transform node's mesh to use shading group group.
   MStatus setShadingGroup(MDGModifier &dgModifier, MObject transform, MString group);
+
+  // Return a copy of points from start (inclusive) to end (exclusive)
+  MPointArray slice(const MPointArray &source, int start, int end = -1);
   
   // Converts a MPoint to a MFloatPoint
   MFloatPoint toFP(const MPoint &point);

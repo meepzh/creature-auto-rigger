@@ -4,6 +4,7 @@
 #include <iterator>
 #include <maya/MPxCommand.h>
 #include <queue>
+#include <unordered_set>
 #include "Utils.h"
 
 typedef std::pair<const Vertex *, double> queuePair;
@@ -15,7 +16,7 @@ struct queuePairComparator {
 };
 
 ACD::ACD(MItMeshVertex &vertexIt, MStatus *status)
-    : quickHull_(vertexIt, -1, &returnStatus_), averageConvexity_(0), maxConvexity_(0) {
+    : quickHull_(vertexIt, -1, &returnStatus_), averageConcavity_(0), maxConcavity_(0) {
   if (MZH::hasError(returnStatus_, "Error running QuickHull")) return;
 
   vertices_ = quickHull_.vertices();
@@ -29,26 +30,26 @@ ACD::ACD(MItMeshVertex &vertexIt, MStatus *status)
   if (MZH::hasError(returnStatus_, "Error projecting hull edges")) return;
   matchPointsToBridge();
   if (MZH::hasError(returnStatus_, "Error matching points to a bridge")) return;
-  calculateConvexities();
-  if (MZH::hasError(returnStatus_, "Error calculating convexities")) return;
+  calculateConcavities();
+  if (MZH::hasError(returnStatus_, "Error calculating concavities")) return;
 
   if (status) *status = returnStatus_;
 }
 
-double ACD::averageConvexity() {
-  return averageConvexity_;
+double ACD::averageConcavity() {
+  return averageConcavity_;
 }
 
-std::vector<double> &ACD::convexities() {
-  return convexities_;
+std::vector<double> &ACD::concavities() {
+  return concavities_;
 }
 
 std::vector<Vertex *> &ACD::hullVertices() {
   return hullVertices_;
 }
 
-double ACD::maxConvexity() {
-  return maxConvexity_;
+double ACD::maxConcavity() {
+  return maxConcavity_;
 }
 
 pEdgeMap &ACD::projectedEdges() {
@@ -289,10 +290,10 @@ void ACD::matchPointsToBridge() {
   } //end-foreach vertices
 }
 
-void ACD::calculateConvexities() {
-  convexities_.resize(vertices_->size(), 0);
+void ACD::calculateConcavities() {
+  concavities_.resize(vertices_->size(), 0);
   vertexBridges_.resize(vertices_->size(), nullptr);
-  averageConvexity_ = 0;
+  averageConcavity_ = 0;
 
   for (Vertex &vertex : *vertices_) {
     auto vertexBridgeListIt = vertexBridgeList_.find(&vertex);
@@ -303,22 +304,53 @@ void ACD::calculateConvexities() {
       return;
     }
 
-    // Find smallest convexity
-    double minConvexity = std::numeric_limits<double>::infinity();
+    // Find smallest concavity
+    double minConcavity = std::numeric_limits<double>::infinity();
     Face *bridge = nullptr;
     for (Face *bridgeCandidate : vertexBridgeListIt->second) {
-      const double convexity = -1 * bridgeCandidate->pointPlaneDistance(vertex.point());
-      if (convexity >= minConvexity) break;
-      minConvexity = convexity;
+      const double concavity = -1 * bridgeCandidate->pointPlaneDistance(vertex.point());
+      if (concavity >= minConcavity) break;
+      minConcavity = concavity;
       bridge = bridgeCandidate;
     }
 
-    convexities_[vertex.index()] = minConvexity;
+    concavities_[vertex.index()] = minConcavity;
     vertexBridges_[vertex.index()] = bridge;
 
-    if (minConvexity > maxConvexity_) maxConvexity_ = minConvexity;
-    averageConvexity_ += minConvexity;
+    if (minConcavity > maxConcavity_) maxConcavity_ = minConcavity;
+    averageConcavity_ += minConcavity;
   } //end-foreach vertices
 
-  averageConvexity_ /= vertices_->size();
+  averageConcavity_ /= vertices_->size();
+}
+
+void ACD::findKnots() {
+  std::unordered_map<Vertex *, std::unordered_set<Vertex *>> visitedPairs;
+
+  for (auto it1 = projectedEdges_.begin(); it1 != projectedEdges_.end(); ++it1) {
+    std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>> &edgeMap = it1->second;
+
+    for (auto it2 = it1->second.begin(); it2 != it1->second.end(); ++it2) {
+      // Check if visited
+      auto visitedIt = visitedPairs.find(it1->first);
+      if (visitedIt != visitedPairs.end() && visitedIt->second.find(it2->first) != visitedIt->second.end()) continue;
+      
+      // Add pair as visited
+      visitedPairs[it1->first].insert(it2->first);
+      visitedPairs[it2->first].insert(it1->first);
+
+      // Convert points
+      std::shared_ptr<std::vector<Vertex *>> &path = it2->second;
+      MPointArray points;
+
+      double length = 0;
+      for (size_t i = 0; i < path->size() - 1; ++i) {
+        points.append(length, concavities_[(*path)[i]->index()]);
+        length += ((*path)[i + 1]->point() - (*path)[i]->point()).length();
+      }
+
+      // Find knots
+
+    } //end-foreach target path
+  } //end-foreach projected edge
 }

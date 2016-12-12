@@ -4,6 +4,12 @@
 #include <maya/MPxCommand.h>
 
 namespace MZH {
+  void copy(MPointArray &to, const MPointArray &from) {
+    for (unsigned int i = 0; i < from.length(); ++i) {
+      to.append(from[i]);
+    }
+  }
+
   MStatus createLocator(MDGModifier &dgModifier, const MPoint &position, const MString &name, bool relative) {
     MStatus status;
 
@@ -57,6 +63,15 @@ namespace MZH {
     status = dgModifier.commandToExecute(cmd);
 
     return status;
+  }
+
+  MPointArray slice(const MPointArray &source, int start, int end) {
+    MPointArray result;
+    if (start < 0) return result;
+    for (int i = start; i < end && i < source.length(); ++i) {
+      result.append(source[i]);
+    }
+    return result;
   }
 
   MFloatPoint toFP(const MPoint &point) {

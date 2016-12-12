@@ -7,6 +7,7 @@
 #include <maya/MItSelectionList.h>
 
 #include "ACD.h"
+#include "MathUtils.h"
 #include "QuickHull.h"
 #include "Utils.h"
 
