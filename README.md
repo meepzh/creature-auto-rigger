@@ -15,7 +15,7 @@ Load the plug-in, then use the following commands:
 ### Approximate Convex Decomposition (ACD) - WIP
 - `acdCmd` - Run the ACD command on each selected mesh object
 - `-colorConcavities` or `-cc` - Set the vertex color to the concavity measure. Black represents halfway between the average and the maximum concavity.
-- `-concavity #.#` or `-c #.#` - Set the concavity threshold for separating components. Default is 0.04.
-- `-knot #.#` or `-k #.#` - Set the Douglas-Peuker threshold for finding knots. Default is 0.0008;
+- `-concavity #.#` or `-c #.#` - Set the concavity tolerance for separating components. Must be nonnegative. Default is 0.04.
+- `-knot #.#` or `-k #.#` - Set the Douglas-Peuker threshold for finding knots. Must be nonnegative and less than or equal to the concavity tolerance. Default is 0.0008.
 - `-showKnots` or `-sk` - Show the knots as locators
 - `-showProjectedEdges` or `-sp` - Show the convex hull edge projections on the model as linear curves.

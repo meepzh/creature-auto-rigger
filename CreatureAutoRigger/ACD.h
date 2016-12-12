@@ -2,6 +2,7 @@
 
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
 #include "QuickHull.h"
 
 typedef std::unordered_map<Vertex *, std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>>> pEdgeMap;
@@ -23,7 +24,7 @@ public:
   double averageConcavity();
   std::vector<double> &concavities();
   std::vector<Vertex *> &hullVertices();
-  std::vector<Vertex *> &knots();
+  std::unordered_set<Vertex *> &knots();
   double maxConcavity();
   pEdgeMap &projectedEdges();
   QuickHull &quickHull();
@@ -46,7 +47,7 @@ protected:
   double douglasPeuckerThreshold_;
   std::vector<Vertex *> hullVertices_;
   std::unordered_map<Vertex *, std::vector<Vertex *>> hullNeighbors_;
-  std::vector<Vertex *> knots_;
+  std::unordered_set<Vertex *> knots_;
   double maxConcavity_;
   std::vector<std::vector<Vertex *>> neighbors_;
   pEdgeMap projectedEdges_;

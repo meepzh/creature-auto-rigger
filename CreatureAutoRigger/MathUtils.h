@@ -11,14 +11,16 @@ namespace MZH {
     return std::max(lower, std::min(number, upper));
   }
 
+  // General Douglas-Peucker for simplifying lines spatially
   MPointArray douglasPeucker(MPointArray &points, double epsilon);
 
   // Distance between a test point and a line defined by 2 points
   double pointLineDistance(const MPoint &testPt, const MPoint &linePtA, const MPoint &linePtB);
+  double pointLineDistanceSquared(const MPoint &testPt, const MPoint &linePtA, const MPoint &linePtB);
   
   // Distance between a test point and a line segment defined by 2 points
-  double pointLineSegmentDistance(const MPoint &testPt, const MPoint &pointA, const MPoint &pointB);
-  double pointLineSegmentDistanceSquared(const MPoint &testPt, const MPoint &pointA, const MPoint &pointB);
+  double pointSegmentDistance(const MPoint &testPt, const MPoint &pointA, const MPoint &pointB);
+  double pointSegmentDistanceSquared(const MPoint &testPt, const MPoint &pointA, const MPoint &pointB);
 
   // Signed distance between a test point and a plane defined by 3 points
   double pointPlaneDistance(const MPoint &testPt, const MPoint &planePtA, const MPoint &planePtB, const MPoint &planePtC);

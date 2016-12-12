@@ -14,8 +14,8 @@
 
 #define kColorConcavitiesFlagLong "-colorConcavities"
 #define kColorConcavitiesFlag "-cc"
-#define kConcavityThresholdFlagLong "-concavity"
-#define kConcavityThresholdFlag "-c"
+#define kConcavityToleranceFlagLong "-concavity"
+#define kConcavityToleranceFlag "-c"
 #define kDouglasPeuckerThresholdFlagLong "-knot"
 #define kDouglasPeuckerThresholdFlag "-k"
 #define kShowKnotsFlagLong "-showKnots"
@@ -26,12 +26,11 @@
 MStatus ACDCmd::doIt(const MArgList& args) {
   MStatus status = MS::kSuccess;
 
-  concavityThreshold_ = 0.04;
+  concavityTolerance_ = 0.04;
   douglasPeuckerThreshold_ = 0.0008;
 
   status = parseArgs(args);
   if (MZH::hasError(status, "Error parsing arguments")) return status;
-  displayInfo("Arguments - concavity: " + MZH::toS(concavityThreshold_) + ", douglasPeucker: " + MZH::toS(douglasPeuckerThreshold_));
 
   MSelectionList sList;
   MGlobal::getActiveSelectionList(sList);
@@ -68,7 +67,7 @@ void *ACDCmd::creator() {
 MSyntax ACDCmd::newSyntax() {
   MSyntax syntax;
   syntax.addFlag(kColorConcavitiesFlag, kColorConcavitiesFlagLong, MSyntax::kNoArg);
-  syntax.addFlag(kConcavityThresholdFlag, kConcavityThresholdFlagLong, MSyntax::kDouble);
+  syntax.addFlag(kConcavityToleranceFlag, kConcavityToleranceFlagLong, MSyntax::kDouble);
   syntax.addFlag(kDouglasPeuckerThresholdFlag, kDouglasPeuckerThresholdFlagLong, MSyntax::kDouble);
   syntax.addFlag(kShowKnotsFlag, kShowKnotsFlagLong, MSyntax::kNoArg);
   syntax.addFlag(kShowProjectedEdgesFlag, kShowProjectedEdgesFlagLong, MSyntax::kNoArg);
@@ -83,7 +82,7 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
     return;
   }
 
-  ACD acd(vertexIt, concavityThreshold_, douglasPeuckerThreshold_, status);
+  ACD acd(vertexIt, concavityTolerance_, douglasPeuckerThreshold_, status);
 
   // Draw projected hull edges
   if (showProjectedPaths_) {
@@ -139,7 +138,7 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
   // Show knots
   MPxCommand::displayInfo("Number of knots: " + MZH::toS((int) acd.knots().size()));
   if (showKnots_) {
-    std::vector<Vertex *> &knots = acd.knots();
+    std::unordered_set<Vertex *> &knots = acd.knots();
     for (Vertex *vertex : knots) {
       *status = MZH::createLocator(dgModifier_, vertex->point(), "knot#", false);
       if (MZH::hasError(*status, "Error creating knot locator")) return;
@@ -154,12 +153,14 @@ MStatus ACDCmd::parseArgs(const MArgList &args) {
   MStatus status = MS::kSuccess;
 
   MArgDatabase argData(syntax(), args);
-  if (argData.isFlagSet(kConcavityThresholdFlag, &status)) {
-    status = argData.getFlagArgument(kConcavityThresholdFlag, 0, concavityThreshold_);
+
+  if (argData.isFlagSet(kConcavityToleranceFlag, &status)) {
+    status = argData.getFlagArgument(kConcavityToleranceFlag, 0, concavityTolerance_);
   }
   if (argData.isFlagSet(kDouglasPeuckerThresholdFlag, &status)) {
     status = argData.getFlagArgument(kDouglasPeuckerThresholdFlag, 0, douglasPeuckerThreshold_);
   }
+
   colorConcavities_ = argData.isFlagSet(kColorConcavitiesFlag, &status);
   showKnots_ = argData.isFlagSet(kShowKnotsFlag, &status);
   showProjectedPaths_ = argData.isFlagSet(kShowProjectedEdgesFlag, &status);

@@ -21,7 +21,7 @@ protected:
   MDagPathArray outputDagPaths_;
 
   // Arguments
-  double concavityThreshold_;
+  double concavityTolerance_;
   double douglasPeuckerThreshold_;
   bool colorConcavities_;
   bool showKnots_;
