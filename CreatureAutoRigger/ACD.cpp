@@ -48,6 +48,7 @@ void ACD::constructor(MItMeshVertex &vertexIt, MStatus *status) {
   if (MZH::hasError(returnStatus_, "Error matching points to a bridge")) return;
   calculateConcavities();
   if (MZH::hasError(returnStatus_, "Error calculating concavities")) return;
+  findKnots();
 
   if (status) *status = returnStatus_;
 }
@@ -395,6 +396,7 @@ std::vector<DPVertex> ACD::douglasPeucker(std::vector<DPVertex> &vertices) {
     maxDistanceSquared = distanceSquared;
   }
 
+  //MPxCommand::displayInfo("DP: " + MZH::toS(std::sqrt(maxDistanceSquared)));
   if (std::sqrt(maxDistanceSquared) > douglasPeuckerThreshold_) {
     std::vector<DPVertex> results1 = douglasPeucker(std::vector<DPVertex>(vertices.begin(), vertices.begin() + maxIndex + 1));
     std::vector<DPVertex> results2 = douglasPeucker(std::vector<DPVertex>(vertices.begin() + maxIndex, vertices.end()));

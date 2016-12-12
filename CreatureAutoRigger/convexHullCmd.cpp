@@ -107,7 +107,7 @@ MStatus ConvexHullCmd::parseArgs(const MArgList &args, int &maxIterations) {
   MStatus status = MS::kSuccess;
 
   MArgDatabase argData(syntax(), args);
-  if (argData.isFlagSet(kIterationsFlag)) {
+  if (argData.isFlagSet(kIterationsFlag, &status)) {
     status = argData.getFlagArgument(kIterationsFlag, 0, maxIterations);
   }
 

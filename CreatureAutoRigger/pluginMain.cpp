@@ -7,7 +7,7 @@ MStatus initializePlugin(MObject obj) {
   MStatus status;
   MFnPlugin plugin(obj, "Robert Zhou", "1.0", "Any");
 
-  status = plugin.registerCommand("acdCmd", ACDCmd::creator);
+  status = plugin.registerCommand("acdCmd", ACDCmd::creator, ACDCmd::newSyntax);
   if (!status) {
     status.perror("registerNode");
     return status;
