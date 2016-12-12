@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iterator>
 #include <maya/MPxCommand.h>
+#include "MathUtils.h"
 #include <queue>
 #include <unordered_set>
 #include "Utils.h"
@@ -15,8 +16,23 @@ struct queuePairComparator {
   }
 };
 
-ACD::ACD(MItMeshVertex &vertexIt, MStatus *status)
-    : quickHull_(vertexIt, -1, &returnStatus_), averageConcavity_(0), maxConcavity_(0) {
+ACD::ACD(MItMeshVertex &vertexIt, double concavityTolerance, double douglasPeuckerThreshold, MStatus *status)
+    : quickHull_(vertexIt, -1, &returnStatus_),
+      averageConcavity_(0), concavityTolerance_(concavityTolerance),
+      clusteringThreshold_(concavityTolerance / 2.0), douglasPeuckerThreshold_(douglasPeuckerThreshold),
+      maxConcavity_(0) {
+  constructor(vertexIt, status);
+}
+
+ACD::ACD(MItMeshVertex &vertexIt, double concavityTolerance, double clusteringThreshold, double douglasPeuckerThreshold, MStatus *status)
+     : quickHull_(vertexIt, -1, &returnStatus_),
+       averageConcavity_(0), concavityTolerance_(concavityTolerance),
+       clusteringThreshold_(clusteringThreshold), douglasPeuckerThreshold_(douglasPeuckerThreshold),
+       maxConcavity_(0) {
+  constructor(vertexIt, status);
+}
+
+void ACD::constructor(MItMeshVertex &vertexIt, MStatus *status) {
   if (MZH::hasError(returnStatus_, "Error running QuickHull")) return;
 
   vertices_ = quickHull_.vertices();
@@ -46,6 +62,10 @@ std::vector<double> &ACD::concavities() {
 
 std::vector<Vertex *> &ACD::hullVertices() {
   return hullVertices_;
+}
+
+std::vector<Vertex *> &ACD::knots() {
+  return knots_;
 }
 
 double ACD::maxConcavity() {
@@ -341,16 +361,50 @@ void ACD::findKnots() {
 
       // Convert points
       std::shared_ptr<std::vector<Vertex *>> &path = it2->second;
-      MPointArray points;
+      std::vector<DPVertex> vertices;
 
       double length = 0;
       for (size_t i = 0; i < path->size() - 1; ++i) {
-        points.append(length, concavities_[(*path)[i]->index()]);
+        vertices.emplace_back(MPoint(length, concavities_[(*path)[i]->index()]), (*path)[i]);
         length += ((*path)[i + 1]->point() - (*path)[i]->point()).length();
       }
 
-      // Find knots
-
+      // Add knots
+      std::vector<DPVertex> knots = douglasPeucker(vertices);
+      for (DPVertex &vertex : knots) {
+        knots_.push_back(vertex.vertex);
+      }
     } //end-foreach target path
   } //end-foreach projected edge
 }
+
+std::vector<DPVertex> ACD::douglasPeucker(std::vector<DPVertex> &vertices) {
+  if (vertices.size() < 3) return vertices;
+    
+  std::vector<DPVertex> results;
+  double maxDistanceSquared = 0.0;
+  unsigned int maxIndex = -1;
+
+  DPVertex &start = vertices.front();
+  DPVertex &end = vertices.back();
+
+  for (unsigned int i = 1; i < vertices.size() - 1; ++i) {
+    const double distanceSquared = MZH::pointLineSegmentDistanceSquared(vertices[i].point, start.point, end.point);
+    if (distanceSquared <= maxDistanceSquared) continue;
+    maxIndex = i;
+    maxDistanceSquared = distanceSquared;
+  }
+
+  if (std::sqrt(maxDistanceSquared) > douglasPeuckerThreshold_) {
+    std::vector<DPVertex> results1 = douglasPeucker(std::vector<DPVertex>(vertices.begin(), vertices.begin() + maxIndex + 1));
+    std::vector<DPVertex> results2 = douglasPeucker(std::vector<DPVertex>(vertices.begin() + maxIndex, vertices.end()));
+    results = results1;
+    results1.insert(results2.begin(), results2.end(), results1.end());
+  } else {
+    results.push_back(start);
+    results.push_back(end);
+  }
+
+  return results;
+}
+

@@ -54,7 +54,7 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
     return;
   }
 
-  ACD acd(vertexIt, status);
+  ACD acd(vertexIt, 0.04, 0.002, status);
 
   /*
   std::vector<Vertex *> &hullVertices = acd.hullVertices();
@@ -93,16 +93,16 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
   MFnMesh meshFn(dagPath, status);
   if (MZH::hasError(*status, "Error converting selection to mesh")) return;
 
-  std::vector<double> &convexities = acd.convexities();
-  MPxCommand::displayInfo("Average convexity: " + MZH::toS(acd.averageConvexity()));
-  MPxCommand::displayInfo("Max convexity: " + MZH::toS(acd.maxConvexity()));
+  std::vector<double> &convexities = acd.concavities();
+  MPxCommand::displayInfo("Average convexity: " + MZH::toS(acd.averageConcavity()));
+  MPxCommand::displayInfo("Max convexity: " + MZH::toS(acd.maxConcavity()));
 
   MColorArray convexityColors;
   MIntArray vertexIndices;
 
   // Color convexities
   int convexityCounter = 0;
-  double convexityBlack = (acd.averageConvexity() + acd.maxConvexity()) / 2.0;
+  double convexityBlack = (acd.averageConcavity() + acd.maxConcavity()) / 2.0;
   for (double convexity : convexities) {
     float lightness = (float) MZH::clamp(1.0 - convexity / convexityBlack, 0.0, 1.0);
     convexityColors.append(lightness, lightness, lightness);
@@ -110,6 +110,14 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
   }
   *status = meshFn.setVertexColors(convexityColors, vertexIndices, &dgModifier);
   if (MZH::hasError(*status, "Error adding step to color convexities")) return;
+
+  // Show knots
+  std::vector<Vertex *> &knots = acd.knots();
+  MPxCommand::displayInfo("Number of knots: " + MZH::toS(knots.size()));
+  for (Vertex *vertex : knots) {
+    *status = MZH::createLocator(dgModifier, vertex->point(), "knot#", false);
+    if (MZH::hasError(*status, "Error creating knot locator")) return;
+  }
 
   *status = dgModifier.doIt();
   if (MZH::hasError(*status, "Error running dag modifier")) return;

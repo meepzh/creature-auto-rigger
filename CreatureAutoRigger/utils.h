@@ -5,6 +5,8 @@
 #include <maya/MPoint.h>
 #include <maya/MPointArray.h>
 #include <maya/MString.h>
+#include <vector>
+#include "Vertex.h"
 
 namespace MZH {
   void copy(MPointArray &to, const MPointArray &from);

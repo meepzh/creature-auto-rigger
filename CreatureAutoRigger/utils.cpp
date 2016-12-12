@@ -68,7 +68,7 @@ namespace MZH {
   MPointArray slice(const MPointArray &source, int start, int end) {
     MPointArray result;
     if (start < 0) return result;
-    for (int i = start; i < end && i < source.length(); ++i) {
+    for (int i = start; i < end && i < (int) source.length(); ++i) {
       result.append(source[i]);
     }
     return result;
