@@ -83,6 +83,7 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
   }
 
   ACD acd(vertexIt, concavityTolerance_, douglasPeuckerThreshold_, status);
+  if (MZH::hasError(*status, "ACD algorithm failed")) return;
 
   // Draw projected hull edges
   if (showProjectedPaths_) {

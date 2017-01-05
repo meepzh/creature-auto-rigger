@@ -20,7 +20,8 @@ ACD::ACD(MItMeshVertex &vertexIt, double concavityTolerance, double douglasPeuck
       averageConcavity_(0), concavityTolerance_(concavityTolerance),
       clusteringThreshold_(concavityTolerance / 2.0), douglasPeuckerThreshold_(douglasPeuckerThreshold),
       maxConcavity_(0) {
-  constructor(vertexIt, status);
+  constructor(vertexIt);
+  if (status) *status = returnStatus_;
 }
 
 ACD::ACD(MItMeshVertex &vertexIt, double concavityTolerance, double clusteringThreshold, double douglasPeuckerThreshold, MStatus *status)
@@ -28,10 +29,11 @@ ACD::ACD(MItMeshVertex &vertexIt, double concavityTolerance, double clusteringTh
        averageConcavity_(0), concavityTolerance_(concavityTolerance),
        clusteringThreshold_(clusteringThreshold), douglasPeuckerThreshold_(douglasPeuckerThreshold),
        maxConcavity_(0) {
-  constructor(vertexIt, status);
+  constructor(vertexIt);
+  if (status) *status = returnStatus_;
 }
 
-void ACD::constructor(MItMeshVertex &vertexIt, MStatus *status) {
+void ACD::constructor(MItMeshVertex &vertexIt) {
   if (MZH::hasError(returnStatus_, "Error running QuickHull")) return;
 
   if (concavityTolerance_ < 0) {
@@ -63,8 +65,6 @@ void ACD::constructor(MItMeshVertex &vertexIt, MStatus *status) {
   calculateConcavities();
   if (MZH::hasError(returnStatus_, "Error calculating concavities")) return;
   findKnots();
-
-  if (status) *status = returnStatus_;
 }
 
 double ACD::averageConcavity() {

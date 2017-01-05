@@ -31,7 +31,7 @@ public:
   std::vector<Face *> &vertexBridges();
 
 protected:
-  void constructor(MItMeshVertex &vertexIt, MStatus *status);
+  void constructor(MItMeshVertex &vertexIt);
   void getHullVertices();
   void getNeighbors(MItMeshVertex &vertexIt);
   void projectHullEdges();
