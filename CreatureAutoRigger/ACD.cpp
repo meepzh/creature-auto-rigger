@@ -265,7 +265,8 @@ void ACD::matchPointsToBridge() {
     std::vector<bool> vertexSeen;
     vertexSeen.resize(vertices_->size(), false);
 
-    std::set<Face *> bridges;
+    std::set<Face *> bridges; // Set of bridges shared by surrounding projected edge vertices
+    std::set<Face *> seenBridges; // Set of all bridges encountered
     queue.push(&curVertex);
     visited.clear();
     bool initedBridges = false;
@@ -277,13 +278,6 @@ void ACD::matchPointsToBridge() {
       // Skip visited
       if (vertexSeen[vertex->index()]) continue;
       vertexSeen[vertex->index()] = true;
-
-      if (initedBridges && bridges.empty()) {
-        // Should not be empty
-        MPxCommand::displayError("No common bridge faces found for vertex " + MZH::toS(curVertex.index()));
-        returnStatus_ = MS::kFailure;
-        return;
-      }
 
       // Add known connected bridges
       auto vertexBridgeListIt = vertexBridgeList_.find(vertex);
@@ -299,6 +293,7 @@ void ACD::matchPointsToBridge() {
           }
         } else {
           bridges.insert(vertexBridgeListIt->second.begin(), vertexBridgeListIt->second.end());
+          seenBridges.insert(vertexBridgeListIt->second.begin(), vertexBridgeListIt->second.end());
           initedBridges = true;
         }
         continue;
@@ -314,9 +309,15 @@ void ACD::matchPointsToBridge() {
     } //end-while !queue.empty()
 
     if (bridges.empty()) {
-      MPxCommand::displayError("No bridge faces for vertex " + MZH::toS(curVertex.index()));
-      returnStatus_ = MS::kFailure;
-      return;
+      if (seenBridges.empty()) {
+        MPxCommand::displayError("No bridge faces for vertex " + MZH::toS(curVertex.index()));
+        returnStatus_ = MS::kFailure;
+        return;
+      }
+
+      // Simply use all bridges seen
+      MPxCommand::displayWarning("No common bridge face found for vertex " + MZH::toS(curVertex.index()));
+      bridges = seenBridges;
     }
 
     // Set vertex bridge faces
