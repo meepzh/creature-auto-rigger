@@ -198,7 +198,8 @@ void ACD::projectHullEdges() {
 
       const std::vector<Vertex *> &neighbors = neighbors_[closest->index()];
       for (const Vertex *neighbor : neighbors) {
-        double newDistance = distance + (source->point() - neighbor->point()).length();
+        //double newDistance = distance + (source->point() - neighbor->point()).length();
+        double newDistance = distance + (closest->point() - neighbor->point()).length();
         if (newDistance < distances[neighbor->index()]) {
           distances[neighbor->index()] = newDistance;
           previouses[neighbor->index()] = closest;
@@ -279,7 +280,7 @@ void ACD::matchPointsToBridge() {
 
       if (initedBridges && bridges.empty()) {
         // Should not be empty
-        MPxCommand::displayError("Bridges emptied for vertex " + MZH::toS(curVertex.index()));
+        MPxCommand::displayError("No common bridge faces found for vertex " + MZH::toS(curVertex.index()));
         returnStatus_ = MS::kFailure;
         return;
       }

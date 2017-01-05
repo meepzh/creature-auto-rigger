@@ -15,8 +15,12 @@ namespace MZH {
   MStatus createLocator(MDGModifier &dgModifier, const MPoint &position, const MString &name, bool relative = true);
 
   // Returns true if status is not MS::kSuccess.
-  // Prints message on error. Only works for MPxCommand.
-  bool hasError(const MStatus &status, const char *message);
+  // Prints error message on error. Only works for MPxCommand.
+  bool hasError(const MStatus &status, const MString &message);
+
+  // Returns true if status is not MS::kSuccess.
+  // Prints warning message on error. Only works for MPxCommand.
+  bool hasWarning(const MStatus &status, const MString &message);
 
   // Sets a transform node's mesh to use shading group group.
   MStatus setShadingGroup(MDGModifier &dgModifier, MObject transform, MString group);

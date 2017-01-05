@@ -39,16 +39,20 @@ MStatus ACDCmd::doIt(const MArgList& args) {
   bool selectedMesh = false;
   
   for (; !sListIt.isDone(); sListIt.next()) {
+    MStatus itemStatus;
     MDagPath dagPath;
     sListIt.getDagPath(dagPath);
     
     if (dagPath.node().hasFn(MFn::kMesh)) {
       selectedMesh = true;
-      runACD(dagPath, &status);
+      runACD(dagPath, &itemStatus);
     } else if (dagPath.node().hasFn(MFn::kTransform) && dagPath.hasFn(MFn::kMesh)) {
       selectedMesh = true;
-      runACD(dagPath, &status);
+      runACD(dagPath, &itemStatus);
     }
+
+    // Store errors to note after list is complete
+    if (itemStatus != MS::kSuccess) status = itemStatus;
   }
 
   if (sListIt.isDone() && !selectedMesh) {
@@ -56,7 +60,8 @@ MStatus ACDCmd::doIt(const MArgList& args) {
     return MS::kFailure;
   }
 
-  if (status == MS::kSuccess) setResult("ACDCmd command executed!\n");
+  if (status == MS::kSuccess) setResult("ACDCmd executed successfully!\n");
+  else displayError("ACDCmd executed with errors. See Script Editor for details.\n");
   return status;
 }
 
@@ -83,10 +88,14 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
   }
 
   ACD acd(vertexIt, concavityTolerance_, douglasPeuckerThreshold_, status);
-  if (MZH::hasError(*status, "ACD algorithm failed")) return;
+  MZH::hasError(*status, "ACD algorithm failed");
+
+  MStatus displayOptionsStatus;
 
   // Draw projected hull edges
   if (showProjectedPaths_) {
+    displayOptionsStatus = MS::kSuccess;
+
     MFnNurbsCurve nurbsFn;
     pEdgeMap &projectedEdges = acd.projectedEdges();
     for (auto it1 = projectedEdges.begin(); it1 != projectedEdges.end(); ++it1) {
@@ -106,8 +115,10 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
         controlVerts.append((*path)[0]->point());
         knots.append(time++);
       
-        MObject curve = nurbsFn.create(controlVerts, knots, (unsigned int) 1, MFnNurbsCurve::kClosed, false, false, MObject::kNullObj, status);
-        *status = dgModifier_.renameNode(curve, "dijkstraPath#");
+        MObject curve = nurbsFn.create(controlVerts, knots, (unsigned int) 1, MFnNurbsCurve::kClosed, false, false, MObject::kNullObj, &displayOptionsStatus);
+        displayOptionsStatus = dgModifier_.renameNode(curve, "dijkstraPath#");
+        MZH::hasWarning(displayOptionsStatus, "Could not create dijkstra path curve for edge from vertex " +
+          MZH::toS(path->front()->index()) + " to vertex " + MZH::toS(path->back()->index()));
       }
     }
   }
@@ -117,37 +128,41 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
   MPxCommand::displayInfo("Max concavity: " + MZH::toS(acd.maxConcavity()));
 
   if (colorConcavities_) {
-    MFnMesh meshFn(dagPath, status);
-    if (MZH::hasError(*status, "Error converting selection to mesh")) return;
+    displayOptionsStatus = MS::kSuccess;
 
-    std::vector<double> &concavities = acd.concavities();
-    MColorArray concavityColors;
-    MIntArray vertexIndices;
+    MFnMesh meshFn(dagPath, &displayOptionsStatus);
+    if (!MZH::hasWarning(displayOptionsStatus, "Could not convert selection to mesh to visualize concavities")) {
+      std::vector<double> &concavities = acd.concavities();
+      MColorArray concavityColors;
+      MIntArray vertexIndices;
 
-    // Color concavities
-    int concavityCounter = 0;
-    double concavityBlack = (acd.averageConcavity() + acd.maxConcavity()) / 2.0;
-    for (double convexity : concavities) {
-      float lightness = (float) MZH::clamp(1.0 - convexity / concavityBlack, 0.0, 1.0);
-      concavityColors.append(lightness, lightness, lightness);
-      vertexIndices.append(concavityCounter++);
+      // Color concavities
+      int concavityCounter = 0;
+      double concavityBlack = (acd.averageConcavity() + acd.maxConcavity()) / 2.0;
+      for (double convexity : concavities) {
+        float lightness = (float) MZH::clamp(1.0 - convexity / concavityBlack, 0.0, 1.0);
+        concavityColors.append(lightness, lightness, lightness);
+        vertexIndices.append(concavityCounter++);
+      }
+      displayOptionsStatus = meshFn.setVertexColors(concavityColors, vertexIndices, &dgModifier_);
+      MZH::hasWarning(displayOptionsStatus, "Could not color concavities");
     }
-    *status = meshFn.setVertexColors(concavityColors, vertexIndices, &dgModifier_);
-    if (MZH::hasError(*status, "Error adding step to color concavities")) return;
   }
 
   // Show knots
   MPxCommand::displayInfo("Number of knots: " + MZH::toS((int) acd.knots().size()));
   if (showKnots_) {
+    displayOptionsStatus = MS::kSuccess;
+
     std::unordered_set<Vertex *> &knots = acd.knots();
     for (Vertex *vertex : knots) {
-      *status = MZH::createLocator(dgModifier_, vertex->point(), "knot#", false);
-      if (MZH::hasError(*status, "Error creating knot locator")) return;
+      displayOptionsStatus = MZH::createLocator(dgModifier_, vertex->point(), "knot#", false);
+      MZH::hasWarning(displayOptionsStatus, "Could not create knot locator");
     }
   }
 
-  *status = dgModifier_.doIt();
-  if (MZH::hasError(*status, "Error running dag modifier")) return;
+  displayOptionsStatus = dgModifier_.doIt();
+  MZH::hasWarning(displayOptionsStatus, "Error creating dijkstra paths and/or knot locators");
 }
 
 MStatus ACDCmd::parseArgs(const MArgList &args) {

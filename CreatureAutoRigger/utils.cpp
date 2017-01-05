@@ -40,9 +40,17 @@ namespace MZH {
     return status;
   }
 
-  bool hasError(const MStatus &status, const char *message) {
+  bool hasError(const MStatus &status, const MString &message) {
     if (status != MS::kSuccess) {
-      MPxCommand::displayError(MString(message) + ": " + status.errorString());
+      MPxCommand::displayError(message + ": " + status.errorString());
+      return true;
+    }
+    return false;
+  }
+
+  bool hasWarning(const MStatus &status, const MString &message) {
+    if (status != MS::kSuccess) {
+      MPxCommand::displayWarning(message + ": " + status.errorString());
       return true;
     }
     return false;
