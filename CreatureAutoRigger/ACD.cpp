@@ -354,20 +354,10 @@ void ACD::calculateConcavities() {
 }
 
 void ACD::findKnots() {
-  std::unordered_map<Vertex *, std::unordered_set<Vertex *>> visitedPairs;
-
   for (auto it1 = projectedEdges_.begin(); it1 != projectedEdges_.end(); ++it1) {
     std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>> &edgeMap = it1->second;
 
     for (auto it2 = it1->second.begin(); it2 != it1->second.end(); ++it2) {
-      // Check if visited
-      auto visitedIt = visitedPairs.find(it1->first);
-      if (visitedIt != visitedPairs.end() && visitedIt->second.find(it2->first) != visitedIt->second.end()) continue;
-      
-      // Add pair as visited
-      visitedPairs[it1->first].insert(it2->first);
-      visitedPairs[it2->first].insert(it1->first);
-
       // Convert points
       std::shared_ptr<std::vector<Vertex *>> &path = it2->second;
       std::vector<DPVertex> vertices;

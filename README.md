@@ -34,6 +34,8 @@ This implementation is derived from [John Lloyd's robust Java QuickHull3D implem
     - To show these colors, under the Modeling menu set, click Mesh Display >> Toggle Display Colors Attribute
 - `-concavity #.#` or `-c #.#` - Set the concavity tolerance for separating components. Must be nonnegative. Default is 0.04.
 - `-knot #.#` or `-k #.#` - Set the Douglas-Peuker threshold for finding knots. Must be nonnegative and less than or equal to the concavity tolerance. Default is 0.0008.
+    - Knots are connected together to create components
+    - Higher thresholds mean fewer knots, and therefore fewer components
 - `-showKnots` or `-sk` - Show the knots as locators
 - `-showProjectedEdges` or `-sp` - Show the convex hull edge projections on the model as linear curves.
 
