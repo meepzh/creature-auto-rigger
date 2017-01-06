@@ -23,7 +23,7 @@ protected:
   // Arguments
   double concavityTolerance_;
   double douglasPeuckerThreshold_;
-  bool colorConcavities_;
+  MString colorConcavities_;
   bool showKnots_;
   bool showProjectedPaths_;
 };

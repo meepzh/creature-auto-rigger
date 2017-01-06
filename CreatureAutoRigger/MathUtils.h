@@ -14,6 +14,14 @@ namespace MZH {
   // General Douglas-Peucker for simplifying lines spatially
   MPointArray douglasPeucker(MPointArray &points, double epsilon);
 
+  // Float approximate-equality comparison, from UPenn CIS277, Dr. Benedict Brown and Adam Mally
+  template<typename T> inline bool fequal(T a, T b, T epsilon = 0.0001) {
+    if (a == b) return true;
+    const T diff = std::abs(a - b);
+    if (a * b == 0) return diff < (epsilon * epsilon);
+    return diff / (std::abs(a) + std::abs(b)) < epsilon;
+  }
+
   // Distance between a test point and a line defined by 2 points
   double pointLineDistance(const MPoint &testPt, const MPoint &linePtA, const MPoint &linePtB);
   double pointLineDistanceSquared(const MPoint &testPt, const MPoint &linePtA, const MPoint &linePtB);

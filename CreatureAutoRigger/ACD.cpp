@@ -169,48 +169,40 @@ void ACD::projectHullEdges() {
       }
       ++targetIt;
     }
-    std::vector<Vertex *> missingTargets = targets;
+    if (targets.empty()) return;
+    
+    for (Vertex *target : targets) {
+      std::vector<double> distances;
+      std::vector<const Vertex *> previouses;
+      distances.resize(vertices_->size(), std::numeric_limits<double>::infinity());
+      previouses.resize(vertices_->size(), nullptr);
 
-    if (missingTargets.empty()) return;
+      std::priority_queue<queuePair, std::vector<queuePair>, queuePairComparator> queue;
 
-    std::vector<double> distances;
-    std::vector<const Vertex *> previouses;
-    distances.resize(vertices_->size(), std::numeric_limits<double>::infinity());
-    previouses.resize(vertices_->size(), nullptr);
+      queue.push(std::make_pair(source, 0));
+      distances[source->index()] = 0;
 
-    std::priority_queue<queuePair, std::vector<queuePair>, queuePairComparator> queue;
-
-    queue.push(std::make_pair(source, 0));
-    distances[source->index()] = 0;
-
-    while (!queue.empty()) {
-      const Vertex *closest = queue.top().first;
-      queue.pop();
+      while (!queue.empty()) {
+        const Vertex *closest = queue.top().first;
+        queue.pop();
       
-      // Check with targets
-      auto it = std::find(missingTargets.begin(), missingTargets.end(), closest);
-      if (it != missingTargets.end()) {
-        missingTargets.erase(it);
-        if (missingTargets.empty()) break;
-      }
+        // Check with target
+        if (closest == target) break;
 
-      double distance = distances[closest->index()];
+        double distance = distances[closest->index()];
 
-      const std::vector<Vertex *> &neighbors = neighbors_[closest->index()];
-      for (const Vertex *neighbor : neighbors) {
-        //double newDistance = distance + (source->point() - neighbor->point()).length();
-        double newDistance = distance + (closest->point() - neighbor->point()).length();
-        if (newDistance < distances[neighbor->index()]) {
-          distances[neighbor->index()] = newDistance;
-          previouses[neighbor->index()] = closest;
-          queue.push(std::make_pair(neighbor, newDistance));
-        }
-      } //end-for
-    } //end-while
+        const std::vector<Vertex *> &neighbors = neighbors_[closest->index()];
+        for (const Vertex *neighbor : neighbors) {
+          double newDistance = distance + MZH::pointLineDistance(neighbor->point(), source->point(), target->point());
+          if (newDistance < distances[neighbor->index()]) {
+            distances[neighbor->index()] = newDistance;
+            previouses[neighbor->index()] = closest;
+            queue.push(std::make_pair(neighbor, newDistance));
+          }
+        } //end-for
+      } //end-while
 
-    // Extract paths to targets
-    missingTargets = targets;
-    for (Vertex *target : missingTargets) {
+      // Extract paths to target
       std::shared_ptr<std::vector<Vertex *>> projectedEdge = std::make_shared<std::vector<Vertex *>>();
       projectedEdge->push_back(target);
 

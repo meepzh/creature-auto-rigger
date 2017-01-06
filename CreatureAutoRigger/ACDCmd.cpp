@@ -26,11 +26,16 @@
 MStatus ACDCmd::doIt(const MArgList& args) {
   MStatus status = MS::kSuccess;
 
+  colorConcavities_ = "";
   concavityTolerance_ = 0.04;
   douglasPeuckerThreshold_ = 0.0008;
 
   status = parseArgs(args);
   if (MZH::hasError(status, "Error parsing arguments")) return status;
+  if (colorConcavities_.length() > 0 && !(colorConcavities_ == "color" || colorConcavities_ == "grayscale")) {
+    displayError("Unknown colorConcavities argument: " + colorConcavities_);
+    return MS::kInvalidParameter;
+  }
 
   MSelectionList sList;
   MGlobal::getActiveSelectionList(sList);
@@ -71,7 +76,7 @@ void *ACDCmd::creator() {
 
 MSyntax ACDCmd::newSyntax() {
   MSyntax syntax;
-  syntax.addFlag(kColorConcavitiesFlag, kColorConcavitiesFlagLong, MSyntax::kNoArg);
+  syntax.addFlag(kColorConcavitiesFlag, kColorConcavitiesFlagLong, MSyntax::kString);
   syntax.addFlag(kConcavityToleranceFlag, kConcavityToleranceFlagLong, MSyntax::kDouble);
   syntax.addFlag(kDouglasPeuckerThresholdFlag, kDouglasPeuckerThresholdFlagLong, MSyntax::kDouble);
   syntax.addFlag(kShowKnotsFlag, kShowKnotsFlagLong, MSyntax::kNoArg);
@@ -127,7 +132,7 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
   MPxCommand::displayInfo("Average concavity: " + MZH::toS(acd.averageConcavity()));
   MPxCommand::displayInfo("Max concavity: " + MZH::toS(acd.maxConcavity()));
 
-  if (colorConcavities_) {
+  if (colorConcavities_.length() > 0) {
     displayOptionsStatus = MS::kSuccess;
 
     MFnMesh meshFn(dagPath, &displayOptionsStatus);
@@ -136,14 +141,37 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
       MColorArray concavityColors;
       MIntArray vertexIndices;
 
-      // Color concavities
+      // Concavity setup
       int concavityCounter = 0;
-      double concavityBlack = (acd.averageConcavity() + acd.maxConcavity()) / 2.0;
-      for (double convexity : concavities) {
-        float lightness = (float) MZH::clamp(1.0 - convexity / concavityBlack, 0.0, 1.0);
-        concavityColors.append(lightness, lightness, lightness);
+      const double maxConcavity = acd.maxConcavity();
+      const double maxConcavity25 = maxConcavity / 4.0;
+      const double maxConcavity50 = maxConcavity / 2.0;
+      const double maxConcavity75 = maxConcavity25 * 3.0;
+      bool useColor = colorConcavities_ == "color";
+      
+      // Color concavities
+      for (double concavity : concavities) {
+        if (useColor) {
+          // Use Maya's color ramp preset
+          if (MZH::fequal(concavity, 0.0)) { // No concavity, white
+            concavityColors.append(1.0f, 1.0f, 1.0f);
+          } else if (MZH::fequal(concavity, maxConcavity)) { // Max concavity, black
+            concavityColors.append(0.0f, 0.0f, 0.0f);
+          } else if (concavity < maxConcavity50) { // Red to yellow
+            concavityColors.append(1.0f, (float) (concavity / maxConcavity50), 0.0f);
+          } else if (concavity < maxConcavity75) { // yellow to green
+            concavityColors.append(1.0f - (float) ((concavity - maxConcavity50) / maxConcavity25), 1.0f, 0.0f);
+          } else { // Green to blue
+            float u = (float) ((concavity - maxConcavity75) / maxConcavity25);
+            concavityColors.append(0.0f, 1.0f - u, u);
+          }
+        } else {
+          float lightness = (float) (1.0 - concavity / maxConcavity);
+          concavityColors.append(lightness, lightness, lightness);
+        }
         vertexIndices.append(concavityCounter++);
-      }
+      } //end-foreach concavity
+
       displayOptionsStatus = meshFn.setVertexColors(concavityColors, vertexIndices, &dgModifier_);
       MZH::hasWarning(displayOptionsStatus, "Could not color concavities");
     }
@@ -171,15 +199,30 @@ MStatus ACDCmd::parseArgs(const MArgList &args) {
   MArgDatabase argData(syntax(), args);
 
   if (argData.isFlagSet(kConcavityToleranceFlag, &status)) {
+    if (status != MS::kSuccess) return status;
     status = argData.getFlagArgument(kConcavityToleranceFlag, 0, concavityTolerance_);
+    if (status != MS::kSuccess) return status;
   }
   if (argData.isFlagSet(kDouglasPeuckerThresholdFlag, &status)) {
+    if (status != MS::kSuccess) return status;
     status = argData.getFlagArgument(kDouglasPeuckerThresholdFlag, 0, douglasPeuckerThreshold_);
+    if (status != MS::kSuccess) return status;
   }
 
-  colorConcavities_ = argData.isFlagSet(kColorConcavitiesFlag, &status);
+  if (argData.isFlagSet(kColorConcavitiesFlag, &status)) {
+    if (status != MS::kSuccess) return status;
+    status = argData.getFlagArgument(kColorConcavitiesFlag, 0, colorConcavities_);
+    if (status != MS::kSuccess) return status;
+
+    colorConcavities_ = colorConcavities_.toLowerCase();
+    if (colorConcavities_ == "gray" || colorConcavities_ == "grey" || colorConcavities_ == "greyscale") colorConcavities_ = "grayscale";
+  }
+  
   showKnots_ = argData.isFlagSet(kShowKnotsFlag, &status);
+  if (status != MS::kSuccess) return status;
+
   showProjectedPaths_ = argData.isFlagSet(kShowProjectedEdgesFlag, &status);
+  if (status != MS::kSuccess) return status;
 
   return status;
 }
