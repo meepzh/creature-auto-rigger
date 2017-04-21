@@ -24,6 +24,7 @@ public:
   void setNext(std::shared_ptr<HalfEdge> next);
   void setOpposite(std::weak_ptr<HalfEdge> opposite);
   
+  // Get neighbors of the associated vertex
   std::vector<Vertex *> getNeighbors();
 
 private:

@@ -1,6 +1,7 @@
 #include "ACD.h"
 
 #include <algorithm>
+#include <Eigen/Dense>
 #include <iterator>
 #include <maya/MPxCommand.h>
 #include "MathUtils.h"
@@ -15,6 +16,9 @@ struct queuePairComparator {
   }
 };
 
+// Constructors
+
+// ACD with automatically calculated clustering threshold
 ACD::ACD(MItMeshVertex &vertexIt, double concavityTolerance, double douglasPeuckerThreshold, MStatus *status)
     : quickHull_(vertexIt, -1, &returnStatus_),
       averageConcavity_(0), concavityTolerance_(concavityTolerance),
@@ -24,6 +28,7 @@ ACD::ACD(MItMeshVertex &vertexIt, double concavityTolerance, double douglasPeuck
   if (status) *status = returnStatus_;
 }
 
+// ACD with manual clustering threshold
 ACD::ACD(MItMeshVertex &vertexIt, double concavityTolerance, double clusteringThreshold, double douglasPeuckerThreshold, MStatus *status)
      : quickHull_(vertexIt, -1, &returnStatus_),
        averageConcavity_(0), concavityTolerance_(concavityTolerance),
@@ -33,9 +38,12 @@ ACD::ACD(MItMeshVertex &vertexIt, double concavityTolerance, double clusteringTh
   if (status) *status = returnStatus_;
 }
 
+// Runs the ACD Algorithm.
+// Should only be called by an ACD constructor
 void ACD::constructor(MItMeshVertex &vertexIt) {
   if (MZH::hasError(returnStatus_, "Error running QuickHull")) return;
 
+  // Parameter sanity check
   if (concavityTolerance_ < 0) {
     concavityTolerance_ = 0;
     MPxCommand::displayWarning("Concavity tolerance set below 0. Returned to 0.");
@@ -49,13 +57,17 @@ void ACD::constructor(MItMeshVertex &vertexIt) {
     MPxCommand::displayWarning("Douglas Peucker threshold set above concavity tolerance. Clamped.");
   }
 
+  // Print args
   MPxCommand::displayInfo("ACD arguments - concavity: " + MZH::toS(concavityTolerance_) + ", douglasPeucker: " + MZH::toS(douglasPeuckerThreshold_));
 
+  // Get vertex objects
   vertices_ = quickHull_.vertices();
 
+  // Shrink fixed-length vectors
   vertices_->shrink_to_fit();
   quickHull_.faces()->shrink_to_fit();
 
+  // Execute ACD Algorithm
   getHullVertices();
   getNeighbors(vertexIt);
   projectHullEdges();
@@ -66,6 +78,8 @@ void ACD::constructor(MItMeshVertex &vertexIt) {
   if (MZH::hasError(returnStatus_, "Error calculating concavities")) return;
   findKnots();
 }
+
+// Getters
 
 double ACD::averageConcavity() {
   return averageConcavity_;
@@ -99,27 +113,34 @@ std::vector<Face *> &ACD::vertexBridges() {
   return vertexBridges_;
 }
 
+// Algorithm Functions
+
+// Extract convex hull vertices, vertex bridges (faces), and hull vertex neighbors
 void ACD::getHullVertices() {
   std::shared_ptr<std::vector<std::unique_ptr<Face>>> faces = quickHull_.faces();
   std::vector<bool> vertexSeen;
   vertexSeen.resize(vertices_->size(), false);
 
+  // For each bridge
   for (std::unique_ptr<Face> &face : *faces) {
     std::shared_ptr<HalfEdge> faceEdge = face->edge();
     std::shared_ptr<HalfEdge> curEdge = faceEdge;
     Face *facePtr = face.get();
 
+    // Get vertex info
     do {
       Vertex *vertex = curEdge->vertex();
       std::set<Face *> &bridges = vertexBridgeList_[vertex];
       bridges.insert(facePtr);
 
+      // Get hull vertex neighbors if haven't
       if (!vertexSeen[vertex->index()]) {
         vertexSeen[vertex->index()] = true;
         hullVertices_.push_back(vertex);
-        hullNeighbors_.insert(std::make_pair(vertex, curEdge->getNeighbors()));
+        hullVertexNeighbors_.insert(std::make_pair(vertex, curEdge->getNeighbors()));
       }
 
+      // For each face vertex
       curEdge = curEdge->next();
     } while (curEdge != faceEdge);
   }
@@ -127,42 +148,48 @@ void ACD::getHullVertices() {
   hullVertices_.shrink_to_fit();
 }
 
+// Store vertex neighbors using the Maya API
 void ACD::getNeighbors(MItMeshVertex &vertexIt) {
   neighbors_.resize(vertexIt.count());
   vertexIt.reset();
 
+  // For each vertex
   MIntArray neighborIndices;
   for (; !vertexIt.isDone(); vertexIt.next()) {
     std::vector<Vertex *> neighbors;
 
+    // Convert vertex ID to Vertex object and save neighbor relationship
     vertexIt.getConnectedVertices(neighborIndices);
     for (unsigned int i = 0; i < neighborIndices.length(); ++i) {
       neighbors.push_back(&(*vertices_)[neighborIndices[i]]);
     }
 
+    // Save a compact version of the neighbors
     neighbors.shrink_to_fit();
     neighbors_[vertexIt.index()] = neighbors;
   }
 }
 
+// Project convex hull edges onto the target mesh using Dijkstra
 void ACD::projectHullEdges() {
+  // For each hull vertex
   for (Vertex *source : hullVertices_) {
-    std::vector<Vertex *> targets = hullNeighbors_.at(source); // Copy, will modify
+    std::vector<Vertex *> targets = hullVertexNeighbors_.at(source); // Copy, will modify
     std::set<Face *> &sourceBridges = vertexBridgeList_[source];
 
-    // Create projectedEdges_
+    // Create projectedEdges_ (source, target) -> (path from source to target)
     projectedEdges_.insert(std::make_pair(source, std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>>()));
     auto &edgeMap = projectedEdges_.at(source);
 
-    // Remove targets that have already been resolved
+    // Remove targets (dest vertices) that have already been resolved
     for (auto targetIt = targets.begin(); targetIt != targets.end();) {
       auto edgeMapIt = projectedEdges_.find(*targetIt);
-      if (edgeMapIt != projectedEdges_.end()) {
+      if (edgeMapIt != projectedEdges_.end()) { // Found target
         auto pathIt = edgeMapIt->second.find(source);
-        if (pathIt == edgeMapIt->second.end()) {
-          // Copy
+        if (pathIt == edgeMapIt->second.end()) { // Path contains source
+          // Copy the path
           edgeMap.insert(std::make_pair(*targetIt, pathIt->second));
-          // Erase
+          // Erase the target
           targetIt = targets.erase(targetIt);
           continue; // Skip increment
         }
@@ -172,6 +199,7 @@ void ACD::projectHullEdges() {
     if (targets.empty()) return;
     
     for (Vertex *target : targets) {
+      // Init Dijkstra structures
       std::vector<double> distances;
       std::vector<const Vertex *> previouses;
       distances.resize(vertices_->size(), std::numeric_limits<double>::infinity());
@@ -182,17 +210,20 @@ void ACD::projectHullEdges() {
       queue.push(std::make_pair(source, 0));
       distances[source->index()] = 0;
 
+      // While there are vertices to process
       while (!queue.empty()) {
         const Vertex *closest = queue.top().first;
         queue.pop();
       
-        // Check with target
+        // Check if target. Then success!
         if (closest == target) break;
 
         double distance = distances[closest->index()];
 
+        // Add vertex neighbors that are closer
         const std::vector<Vertex *> &neighbors = neighbors_[closest->index()];
         for (const Vertex *neighbor : neighbors) {
+          // Want to maintain hull edge integrity, not shortest length
           double newDistance = distance + MZH::pointLineDistance(neighbor->point(), source->point(), target->point());
           if (newDistance < distances[neighbor->index()]) {
             distances[neighbor->index()] = newDistance;
@@ -206,7 +237,7 @@ void ACD::projectHullEdges() {
       std::shared_ptr<std::vector<Vertex *>> projectedEdge = std::make_shared<std::vector<Vertex *>>();
       projectedEdge->push_back(target);
 
-      // Get potential bridge faces
+      // Find shared bridges between source and target
       std::set<Face *> &targetBridges = vertexBridgeList_[target];
       std::set<Face *> pairBridges;
       std::set_intersection(sourceBridges.begin(), sourceBridges.end(),
@@ -214,6 +245,7 @@ void ACD::projectHullEdges() {
         std::inserter(pairBridges, pairBridges.end())
       );
 
+      // Fail if a common bridge can't be found. Impossible!
       if (pairBridges.empty()) {
         MPxCommand::displayError("No shared faces between target " + MZH::toS(target->index())
           + " and source " + MZH::toS(source->index()));
@@ -221,20 +253,23 @@ void ACD::projectHullEdges() {
         return;
       }
 
+      // Add shared bridges to projected vertex's possibly associated bridges
       const Vertex *curVertex = previouses[target->index()];
       while (curVertex != source) {
         projectedEdge->push_back(const_cast<Vertex *>(curVertex));
         std::set<Face *> &curBridges = vertexBridgeList_[const_cast<Vertex *>(curVertex)];
         curBridges.insert(pairBridges.begin(), pairBridges.end());
         
+        // Fail if can't find a path from target to source
         if (previouses[curVertex->index()] == nullptr) {
-          // Couldn't find path...
           MPxCommand::displayError("Could not find path for vertex " + MZH::toS(curVertex->index())
             + " to target " + MZH::toS(target->index())
             + " from source " + MZH::toS(source->index()));
           returnStatus_ = MS::kFailure;
           return;
         }
+
+        // Next vertex in path
         curVertex = previouses[curVertex->index()];
       }
       projectedEdge->push_back(source);
@@ -245,10 +280,12 @@ void ACD::projectHullEdges() {
   } //end-foreach hullVertex
 }
 
+// Match every mesh vertex to the nearest bridge
 void ACD::matchPointsToBridge() {
   std::queue<Vertex *> queue;
   std::vector<Vertex *> visited;
 
+  // For each vertex with undetermined bridges
   for (Vertex &curVertex : *vertices_) {
     if (vertexBridgeList_.find(&curVertex) != vertexBridgeList_.end()) continue;
 
@@ -261,22 +298,23 @@ void ACD::matchPointsToBridge() {
     std::set<Face *> seenBridges; // Set of all bridges encountered
     queue.push(&curVertex);
     visited.clear();
-    bool initedBridges = false;
+    bool initedBridges = false; // True if bridge sets have been inserted into
 
+    // Flood fill vertices to projected hull edge boundaries
     while (!queue.empty()) {
       Vertex *vertex = queue.front();
       queue.pop();
       
-      // Skip visited
+      // Skip visited vertices
       if (vertexSeen[vertex->index()]) continue;
       vertexSeen[vertex->index()] = true;
 
-      // Add known connected bridges
+      // Found vertex with known bridges
       auto vertexBridgeListIt = vertexBridgeList_.find(vertex);
       if (vertexBridgeListIt != vertexBridgeList_.end()) {
-        if (initedBridges) {
+        if (initedBridges) { // Only keep shared bridges in the bridges set
           for (auto it = bridges.begin(); it != bridges.end();) {
-            // Erase faces that aren't shared
+            // Erase if not shared
             if (vertexBridgeListIt->second.find(*it) == vertexBridgeListIt->second.end()) {
               it = bridges.erase(it);
             } else {
@@ -284,6 +322,7 @@ void ACD::matchPointsToBridge() {
             }
           }
         } else {
+          // First time encountering known bridges, add them all
           bridges.insert(vertexBridgeListIt->second.begin(), vertexBridgeListIt->second.end());
           seenBridges.insert(vertexBridgeListIt->second.begin(), vertexBridgeListIt->second.end());
           initedBridges = true;
@@ -293,7 +332,7 @@ void ACD::matchPointsToBridge() {
       
       visited.push_back(vertex);
 
-      // Add neighbors
+      // Add neighbors to process
       std::vector<Vertex *> &neighbors = neighbors_[vertex->index()];
       for (Vertex *neighbor : neighbors) {
         if (!vertexSeen[neighbor->index()]) queue.push(neighbor);
@@ -301,6 +340,7 @@ void ACD::matchPointsToBridge() {
     } //end-while !queue.empty()
 
     if (bridges.empty()) {
+      // Fail if bridges have never been seen
       if (seenBridges.empty()) {
         MPxCommand::displayError("No bridge faces for vertex " + MZH::toS(curVertex.index()));
         returnStatus_ = MS::kFailure;
@@ -308,6 +348,7 @@ void ACD::matchPointsToBridge() {
       }
 
       // Simply use all bridges seen
+      // TODO: Why does this happen?
       MPxCommand::displayWarning("No common bridge face found for vertex " + MZH::toS(curVertex.index()));
       bridges = seenBridges;
     }
@@ -319,21 +360,24 @@ void ACD::matchPointsToBridge() {
   } //end-foreach vertices
 }
 
+// Calculate concavity for each vertex and save the associated bridge
 void ACD::calculateConcavities() {
   concavities_.resize(vertices_->size(), 0);
   vertexBridges_.resize(vertices_->size(), nullptr);
   averageConcavity_ = 0;
 
   for (Vertex &vertex : *vertices_) {
+    // Get potential bridges
     auto vertexBridgeListIt = vertexBridgeList_.find(&vertex);
 
+    // Fail if a vertex has no bridges, and therefore cannot calculate concavity
     if (vertexBridgeListIt == vertexBridgeList_.end()) {
       MPxCommand::displayError("No bridge face list created for vertex " + MZH::toS(vertex.index()));
       returnStatus_ = MS::kFailure;
       return;
     }
 
-    // Find smallest concavity
+    // Find smallest concavity of the possible bridges
     double minConcavity = std::numeric_limits<double>::infinity();
     Face *bridge = nullptr;
     for (Face *bridgeCandidate : vertexBridgeListIt->second) {
@@ -343,6 +387,7 @@ void ACD::calculateConcavities() {
       bridge = bridgeCandidate;
     }
 
+    // Save concavity and bridge
     concavities_[vertex.index()] = minConcavity;
     vertexBridges_[vertex.index()] = bridge;
 
@@ -353,15 +398,18 @@ void ACD::calculateConcavities() {
   averageConcavity_ /= vertices_->size();
 }
 
+// Find knots using the Douglas-Peucker criteria
 void ACD::findKnots() {
+  // For each source-target path (projected bridge edge)
   for (auto it1 = projectedEdges_.begin(); it1 != projectedEdges_.end(); ++it1) {
     std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>> &edgeMap = it1->second;
-
+    
+    // For each vertex in the path
     for (auto it2 = it1->second.begin(); it2 != it1->second.end(); ++it2) {
-      // Convert points
       std::shared_ptr<std::vector<Vertex *>> &path = it2->second;
       std::vector<DPVertex> vertices;
 
+      // Save converted points
       double length = 0;
       for (size_t i = 0; i < path->size() - 1; ++i) {
         vertices.emplace_back(MPoint(length, concavities_[(*path)[i]->index()]), (*path)[i]);
@@ -371,7 +419,7 @@ void ACD::findKnots() {
       Vertex *start = path->front();
       Vertex *end = path->back();
 
-      // Add knots
+      // Add knots matching criteria
       std::vector<DPVertex> knots = douglasPeucker(vertices);
       for (DPVertex &vertex : knots) {
         if (vertex.point.y <= douglasPeuckerThreshold_) continue;
@@ -381,6 +429,7 @@ void ACD::findKnots() {
   } //end-foreach projected edge
 }
 
+// Return Douglas-Peucker optimized set of vertices
 std::vector<DPVertex> ACD::douglasPeucker(std::vector<DPVertex> &vertices) {
   if (vertices.size() < 3) return vertices;
     
@@ -400,6 +449,7 @@ std::vector<DPVertex> ACD::douglasPeucker(std::vector<DPVertex> &vertices) {
   }
 
   if (maxDistanceSquared > douglasPeuckerThreshold_ * douglasPeuckerThreshold_) {
+    // Recurse
     std::vector<DPVertex> results1 = douglasPeucker(std::vector<DPVertex>(vertices.begin(), vertices.begin() + maxIndex + 1));
     std::vector<DPVertex> results2 = douglasPeucker(std::vector<DPVertex>(vertices.begin() + maxIndex, vertices.end()));
     results = results1;

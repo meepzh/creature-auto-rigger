@@ -41,19 +41,30 @@ protected:
   std::vector<DPVertex> douglasPeucker(std::vector<DPVertex> &vertices);
 
   double averageConcavity_;
-  std::vector<double> concavities_;
   double concavityTolerance_;
   double clusteringThreshold_;
   double douglasPeuckerThreshold_;
-  std::vector<Vertex *> hullVertices_;
-  std::unordered_map<Vertex *, std::vector<Vertex *>> hullNeighbors_;
-  std::unordered_set<Vertex *> knots_;
   double maxConcavity_;
+
+  // Concavity by vertex ID
+  std::vector<double> concavities_;
+  // Vertices of the convex hull
+  std::vector<Vertex *> hullVertices_;
+  // Map of convex hull vertices to their convex hull vertex neighbors
+  std::unordered_map<Vertex *, std::vector<Vertex *>> hullVertexNeighbors_;
+  // Set of vertices identified as knots
+  std::unordered_set<Vertex *> knots_;
+  // Vertex neighbors by vertex ID
   std::vector<std::vector<Vertex *>> neighbors_;
+  // Map of (source vertex, (target vertex, vector path from source to target or the opposite))
   pEdgeMap projectedEdges_;
+  // Completed QuickHull instance
   QuickHull quickHull_;
   MStatus returnStatus_;
+  // Vertex objects by Vertex ID
   std::shared_ptr<std::vector<Vertex>> vertices_;
+  // Map of vertices to possible vertex bridges (faces)
   std::unordered_map<Vertex *, std::set<Face *>> vertexBridgeList_;
+  // Vertex bridges by vertex ID
   std::vector<Face *> vertexBridges_;
 };
