@@ -103,10 +103,14 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
 
     MFnNurbsCurve nurbsFn;
     pEdgeMap &projectedEdges = acd.projectedEdges();
+
+    // For each source
     for (auto it1 = projectedEdges.begin(); it1 != projectedEdges.end(); ++it1) {
       std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>> &edgeMap = it1->second;
 
+      // For each target
       for (auto it2 = it1->second.begin(); it2 != it1->second.end(); ++it2) {
+        // Create a linear B-spline
         std::shared_ptr<std::vector<Vertex *>> &path = it2->second;
 
         MPointArray controlVerts;
@@ -119,7 +123,8 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
         }
         controlVerts.append((*path)[0]->point());
         knots.append(time++);
-      
+
+        // Generate the spline
         MObject curve = nurbsFn.create(controlVerts, knots, (unsigned int) 1, MFnNurbsCurve::kClosed, false, false, MObject::kNullObj, &displayOptionsStatus);
         displayOptionsStatus = dgModifier_.renameNode(curve, "dijkstraPath#");
         MZH::hasWarning(displayOptionsStatus, "Could not create dijkstra path curve for edge from vertex " +
@@ -132,6 +137,7 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
   MPxCommand::displayInfo("Average concavity: " + MZH::toS(acd.averageConcavity()));
   MPxCommand::displayInfo("Max concavity: " + MZH::toS(acd.maxConcavity()));
 
+  // Bake concavity colors into the source mesh
   if (colorConcavities_.length() > 0) {
     displayOptionsStatus = MS::kSuccess;
 
@@ -166,6 +172,7 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
             concavityColors.append(0.0f, 1.0f - u, u);
           }
         } else {
+          // Grayscale
           float lightness = (float) (1.0 - concavity / maxConcavity);
           concavityColors.append(lightness, lightness, lightness);
         }

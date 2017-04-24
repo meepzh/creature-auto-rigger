@@ -77,6 +77,7 @@ void ACD::constructor(MItMeshVertex &vertexIt) {
   calculateConcavities();
   if (MZH::hasError(returnStatus_, "Error calculating concavities")) return;
   findKnots();
+  computeUsefulPocketCuts();
 }
 
 // Getters
@@ -398,9 +399,9 @@ void ACD::calculateConcavities() {
   averageConcavity_ /= vertices_->size();
 }
 
-// Find knots using the Douglas-Peucker criteria
+// Find knots on pocket boundaries (bridge projected paths) using the Douglas-Peucker criteria
 void ACD::findKnots() {
-  // For each source-target path (projected bridge edge)
+  // For each source-target path (pocket boundary)
   for (auto it1 = projectedEdges_.begin(); it1 != projectedEdges_.end(); ++it1) {
     std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>> &edgeMap = it1->second;
     
@@ -409,7 +410,7 @@ void ACD::findKnots() {
       std::shared_ptr<std::vector<Vertex *>> &path = it2->second;
       std::vector<DPVertex> vertices;
 
-      // Save converted points
+      // Create points in concavity space
       double length = 0;
       for (size_t i = 0; i < path->size() - 1; ++i) {
         vertices.emplace_back(MPoint(length, concavities_[(*path)[i]->index()]), (*path)[i]);
@@ -441,7 +442,7 @@ std::vector<DPVertex> ACD::douglasPeucker(std::vector<DPVertex> &vertices) {
   DPVertex &end = vertices.back();
 
   for (unsigned int i = 1; i < vertices.size() - 1; ++i) {
-    // TODO: Should we only be using concavity (as we are using point-line distance, not point-segment distance)
+    // TODO: Should we only be using concavity? (as we are using point-line distance, not point-segment distance)
     const double distanceSquared = MZH::pointLineDistanceSquared(vertices[i].point, start.point, end.point);
     if (distanceSquared <= maxDistanceSquared) continue;
     maxIndex = i;
@@ -449,12 +450,13 @@ std::vector<DPVertex> ACD::douglasPeucker(std::vector<DPVertex> &vertices) {
   }
 
   if (maxDistanceSquared > douglasPeuckerThreshold_ * douglasPeuckerThreshold_) {
-    // Recurse
+    // Recurse, found a critical point
     std::vector<DPVertex> results1 = douglasPeucker(std::vector<DPVertex>(vertices.begin(), vertices.begin() + maxIndex + 1));
     std::vector<DPVertex> results2 = douglasPeucker(std::vector<DPVertex>(vertices.begin() + maxIndex, vertices.end()));
     results = results1;
     results.insert(results.end(), results2.begin(), results2.end() - 1);
   } else {
+    // No critical points. Return endpoints
     results.push_back(start);
     results.push_back(end);
   }
@@ -462,3 +464,18 @@ std::vector<DPVertex> ACD::douglasPeucker(std::vector<DPVertex> &vertices) {
   return results;
 }
 
+// Find non-crossing pocket cuts (intersecting paths) within a pocket
+// TODO: Handle cup-shaped pockets
+void ACD::computeUsefulPocketCuts() {
+  // Iterate per pocket
+  // Get all knots in the pocket
+  // Record all knots. Should not cross these
+  // Compute the connecting paths with minimum weight
+  // Record vertices in the path
+  // If encountered a saved vertex, indicates that all paths with this vertex cross.
+  // Finish the path in case it crosses later in the future
+}
+
+void ACD::weighEdge() {
+
+}

@@ -39,6 +39,8 @@ protected:
   void calculateConcavities();
   void findKnots();
   std::vector<DPVertex> douglasPeucker(std::vector<DPVertex> &vertices);
+  void computeUsefulPocketCuts();
+  void weighEdge();
 
   double averageConcavity_;
   double concavityTolerance_;
