@@ -20,10 +20,10 @@ struct queuePairComparator {
 
 // ACD with automatically calculated clustering threshold
 ACD::ACD(MItMeshEdge &edgeIt, MItMeshPolygon &faceIt, MItMeshVertex &vertexIt,
-         double concavityTolerance, double douglasPeuckerThreshold, MStatus *status)
+         double concavityTolerance, double douglasPeuckerThreshold, unsigned int bestPolyCount, MStatus *status)
     : quickHull_(vertexIt, -1, &returnStatus_),
       averageConcavity_(0), concavityTolerance_(concavityTolerance),
-      clusteringThreshold_(concavityTolerance / 2.0), douglasPeuckerThreshold_(douglasPeuckerThreshold),
+      clusteringThreshold_(concavityTolerance / 2.0), douglasPeuckerThreshold_(douglasPeuckerThreshold), bestPolyCount_(bestPolyCount),
       maxConcavity_(0), edgeIt_(edgeIt), faceIt_(faceIt), vertexIt_(vertexIt) {
   constructor();
   if (status) *status = returnStatus_;
@@ -31,10 +31,10 @@ ACD::ACD(MItMeshEdge &edgeIt, MItMeshPolygon &faceIt, MItMeshVertex &vertexIt,
 
 // ACD with manual clustering threshold
 ACD::ACD(MItMeshEdge &edgeIt, MItMeshPolygon &faceIt, MItMeshVertex &vertexIt,
-         double concavityTolerance, double clusteringThreshold, double douglasPeuckerThreshold, MStatus *status)
+         double concavityTolerance, double clusteringThreshold, double douglasPeuckerThreshold, unsigned int bestPolyCount, MStatus *status)
      : quickHull_(vertexIt, -1, &returnStatus_),
        averageConcavity_(0), concavityTolerance_(concavityTolerance),
-       clusteringThreshold_(clusteringThreshold), douglasPeuckerThreshold_(douglasPeuckerThreshold),
+       clusteringThreshold_(clusteringThreshold), douglasPeuckerThreshold_(douglasPeuckerThreshold), bestPolyCount_(bestPolyCount),
        maxConcavity_(0), edgeIt_(edgeIt), faceIt_(faceIt), vertexIt_(vertexIt) {
   constructor();
   if (status) *status = returnStatus_;
@@ -482,14 +482,20 @@ void ACD::computePocketCuts() {
 
     // Get all knots for this pocket
     do {
-      Vertex *vertex = curEdge->vertex();
-      if (knots_.find(vertex) != knots_.end()) {
-        // Find the associated boundary
-        Face *neighboringPocket = curEdge->opposite().lock()->face();
-        knotToBoundaryMap.insert(std::make_pair(vertex, neighboringPocket));
+      Vertex *curVertex = curEdge->vertex();
+      Vertex *prevVertex = curEdge->prevVertex();
 
-        // Save for easy iteration
-        pocketKnots.push_back(vertex);
+      // Iterate the projected edge
+      std::shared_ptr<std::vector<Vertex *>> projectedEdge = projectedEdges_[curVertex][prevVertex];
+      for (Vertex *vertex : *projectedEdge) {
+        if (knots_.find(vertex) != knots_.end()) {
+          // Find the associated boundary
+          Face *neighboringPocket = curEdge->opposite().lock()->face();
+          knotToBoundaryMap.insert(std::make_pair(vertex, neighboringPocket));
+
+          // Save for easy iteration
+          pocketKnots.push_back(vertex);
+        }
       }
 
       curEdge = curEdge->next();
@@ -625,9 +631,45 @@ double ACD::calculateCurvature(const Vertex *vertexA, const Vertex *vertexB) {
   vertexIt_.getConnectedEdges(connectedEdges);
   for (unsigned int i = 0; i < connectedEdges.length(); ++i) {
     edgeIt_.setIndex(connectedEdges[i], prevIndex);
-    MPxCommand::displayInfo("Indices for an edge connected to " + MZH::toS(vertexA->index()) +
-      ": " + MZH::toS(edgeIt_.index(0)) + ", " + MZH::toS(edgeIt_.index(1)));
+    if (edgeIt_.index(0) == vertexB->index() || edgeIt_.index(1) == vertexB->index()) break;
   }
+
+  // Get a normal to get a sense of direction relative to the edge
+  MVector edgeNormal;
+  MIntArray edgeFaces;
+  edgeIt_.getConnectedFaces(edgeFaces);
+  faceIt_.setIndex(edgeFaces[0], prevIndex);
+  faceIt_.getNormal(edgeNormal, MSpace::kWorld);
+
+  if (edgeFaces.length() == 2) {
+    MVector edgeNormal1 = edgeNormal;
+    MVector edgeNormal2;
+    faceIt_.setIndex(edgeFaces[1], prevIndex);
+    faceIt_.getNormal(edgeNormal2, MSpace::kWorld);
+    edgeNormal = edgeNormal1 + edgeNormal2;
+
+    if (edgeNormal.length() > 0.01) {
+      // Normals don't cancel, normalize
+      edgeNormal.normalize();
+    } else {
+      // Just pick one normal
+      edgeNormal = edgeNormal1;
+    }
+  }
+
+  // Make that normal perpendicular to define a plane
+  MVector edgeVector = (vertexB->point() - vertexA->point()).normal();
+  MVector inplaneVector = edgeVector ^ edgeNormal;
+  edgeNormal = inplaneVector ^ edgeVector;
+
+  // Gather data points for the best polynomial
+  std::list<MPoint> intersections;
+
+  // Add the edge we're calculating on (origin in parameter space)
+  intersections.push_back(MPoint());
+
+  // Iterate the faces on each side for the closest intersections
+
 
   // Store the edge curvature
   return 0.0;

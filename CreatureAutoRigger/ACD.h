@@ -32,10 +32,10 @@ typedef std::unordered_map<const Vertex *, std::unordered_map<const Vertex *, st
 class ACD {
 public:
   ACD(MItMeshEdge &edgeIt, MItMeshPolygon &faceIt, MItMeshVertex &vertexIt,
-    double concavityTolerance, double douglasPeuckerThreshold,
+    double concavityTolerance, double douglasPeuckerThreshold, unsigned int bestPolyCount,
     MStatus *status = nullptr);
   ACD(MItMeshEdge &edgeIt, MItMeshPolygon &faceIt, MItMeshVertex &vertexIt,
-    double concavityTolerance, double clusteringThreshold, double douglasPeuckerThreshold,
+    double concavityTolerance, double clusteringThreshold, double douglasPeuckerThreshold, unsigned int bestPolyCount,
     MStatus *status = nullptr);
 
   double averageConcavity();
@@ -61,6 +61,7 @@ protected:
   double calculateCurvature(const Vertex *vertexA, const Vertex *vertexB);
 
   double averageConcavity_;
+  unsigned int bestPolyCount_;
   double concavityTolerance_;
   double clusteringThreshold_;
   double douglasPeuckerThreshold_;

@@ -98,7 +98,7 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
     return;
   }
 
-  ACD acd(edgeIt, faceIt, vertexIt, concavityTolerance_, douglasPeuckerThreshold_, status);
+  ACD acd(edgeIt, faceIt, vertexIt, concavityTolerance_, douglasPeuckerThreshold_, 5, status);
   MZH::hasError(*status, "ACD algorithm failed");
 
   MStatus displayOptionsStatus;
