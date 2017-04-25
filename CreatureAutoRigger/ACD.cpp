@@ -19,28 +19,30 @@ struct queuePairComparator {
 // Constructors
 
 // ACD with automatically calculated clustering threshold
-ACD::ACD(MItMeshVertex &vertexIt, double concavityTolerance, double douglasPeuckerThreshold, MStatus *status)
+ACD::ACD(MItMeshEdge &edgeIt, MItMeshPolygon &faceIt, MItMeshVertex &vertexIt,
+         double concavityTolerance, double douglasPeuckerThreshold, MStatus *status)
     : quickHull_(vertexIt, -1, &returnStatus_),
       averageConcavity_(0), concavityTolerance_(concavityTolerance),
       clusteringThreshold_(concavityTolerance / 2.0), douglasPeuckerThreshold_(douglasPeuckerThreshold),
-      maxConcavity_(0) {
-  constructor(vertexIt);
+      maxConcavity_(0), edgeIt_(edgeIt), faceIt_(faceIt), vertexIt_(vertexIt) {
+  constructor();
   if (status) *status = returnStatus_;
 }
 
 // ACD with manual clustering threshold
-ACD::ACD(MItMeshVertex &vertexIt, double concavityTolerance, double clusteringThreshold, double douglasPeuckerThreshold, MStatus *status)
+ACD::ACD(MItMeshEdge &edgeIt, MItMeshPolygon &faceIt, MItMeshVertex &vertexIt,
+         double concavityTolerance, double clusteringThreshold, double douglasPeuckerThreshold, MStatus *status)
      : quickHull_(vertexIt, -1, &returnStatus_),
        averageConcavity_(0), concavityTolerance_(concavityTolerance),
        clusteringThreshold_(clusteringThreshold), douglasPeuckerThreshold_(douglasPeuckerThreshold),
-       maxConcavity_(0) {
-  constructor(vertexIt);
+       maxConcavity_(0), edgeIt_(edgeIt), faceIt_(faceIt), vertexIt_(vertexIt) {
+  constructor();
   if (status) *status = returnStatus_;
 }
 
 // Runs the ACD Algorithm.
 // Should only be called by an ACD constructor
-void ACD::constructor(MItMeshVertex &vertexIt) {
+void ACD::constructor() {
   if (MZH::hasError(returnStatus_, "Error running QuickHull")) return;
 
   // Parameter sanity check
@@ -69,7 +71,7 @@ void ACD::constructor(MItMeshVertex &vertexIt) {
 
   // Execute ACD Algorithm
   getHullVertices();
-  getNeighbors(vertexIt);
+  getNeighbors();
   projectHullEdges();
   if (MZH::hasError(returnStatus_, "Error projecting hull edges")) return;
   matchPointsToBridge();
@@ -77,7 +79,7 @@ void ACD::constructor(MItMeshVertex &vertexIt) {
   calculateConcavities();
   if (MZH::hasError(returnStatus_, "Error calculating concavities")) return;
   findKnots();
-  computeUsefulPocketCuts();
+  computePocketCuts();
 }
 
 // Getters
@@ -150,24 +152,24 @@ void ACD::getHullVertices() {
 }
 
 // Store vertex neighbors using the Maya API
-void ACD::getNeighbors(MItMeshVertex &vertexIt) {
-  neighbors_.resize(vertexIt.count());
-  vertexIt.reset();
+void ACD::getNeighbors() {
+  neighbors_.resize(vertexIt_.count());
+  vertexIt_.reset();
 
   // For each vertex
   MIntArray neighborIndices;
-  for (; !vertexIt.isDone(); vertexIt.next()) {
+  for (; !vertexIt_.isDone(); vertexIt_.next()) {
     std::vector<Vertex *> neighbors;
 
     // Convert vertex ID to Vertex object and save neighbor relationship
-    vertexIt.getConnectedVertices(neighborIndices);
+    vertexIt_.getConnectedVertices(neighborIndices);
     for (unsigned int i = 0; i < neighborIndices.length(); ++i) {
       neighbors.push_back(&(*vertices_)[neighborIndices[i]]);
     }
 
     // Save a compact version of the neighbors
     neighbors.shrink_to_fit();
-    neighbors_[vertexIt.index()] = neighbors;
+    neighbors_[vertexIt_.index()] = neighbors;
   }
 }
 
@@ -464,11 +466,10 @@ std::vector<DPVertex> ACD::douglasPeucker(std::vector<DPVertex> &vertices) {
   return results;
 }
 
-// Find non-crossing pocket cuts (intersecting paths) within a pocket
+// Find pocket cuts within a pocket
 // TODO: Handle cup-shaped pockets
-void ACD::computeUsefulPocketCuts() {
+void ACD::computePocketCuts() {
   std::shared_ptr<std::vector<std::unique_ptr<Face>>> faces = quickHull_.faces();
-  std::vector<std::shared_ptr<PocketCut>> pocketCuts;
 
   // For each pocket (via its corresponding bridge)
   for (std::unique_ptr<Face> &face : *faces) {
@@ -476,16 +477,19 @@ void ACD::computeUsefulPocketCuts() {
     std::shared_ptr<HalfEdge> curEdge = faceEdge;
 
     std::vector<Vertex *> pocketKnots;
-    std::unordered_set<const Vertex *> uncrossableVertices;
+    std::unordered_map<Vertex *, Face *> knotToBoundaryMap;
     std::unordered_map<const Vertex *, std::vector<std::shared_ptr<PocketCut>>> vertexToCutsMap;
 
     // Get all knots for this pocket
     do {
       Vertex *vertex = curEdge->vertex();
       if (knots_.find(vertex) != knots_.end()) {
+        // Find the associated boundary
+        Face *neighboringPocket = curEdge->opposite().lock()->face();
+        knotToBoundaryMap.insert(std::make_pair(vertex, neighboringPocket));
+
         // Save for easy iteration
-        // Knot vertices cannot be crossed
-        uncrossableVertices.insert(vertex);
+        pocketKnots.push_back(vertex);
       }
 
       curEdge = curEdge->next();
@@ -494,7 +498,6 @@ void ACD::computeUsefulPocketCuts() {
     // Compute all connecting paths with minimum weight using Dijkstra's
     for (auto sourceKnotIt = pocketKnots.begin(); sourceKnotIt != pocketKnots.end(); ++sourceKnotIt) {
       auto destKnotIt = sourceKnotIt;
-
       for (++destKnotIt; destKnotIt != pocketKnots.end(); ++destKnotIt) {
         // Init Dijkstra's algorithm structures
         std::vector<double> weights;
@@ -544,7 +547,6 @@ void ACD::computeUsefulPocketCuts() {
 
         // Create a new cut path
         std::shared_ptr<PocketCut> newPocketCut = std::make_shared<PocketCut>();
-        pocketCuts.push_back(newPocketCut);
         std::vector<const Vertex *> &cutPath = newPocketCut->path;
         const Vertex *curVertex = *destKnotIt;
         cutPath.push_back(curVertex);
@@ -558,13 +560,6 @@ void ACD::computeUsefulPocketCuts() {
               + " from source " + MZH::toS((*sourceKnotIt)->index()));
             returnStatus_ = MS::kFailure;
             return;
-          }
-
-          // Check and mark if the path intersects
-          if (uncrossableVertices.find(curVertex) != uncrossableVertices.end()) {
-            newPocketCut->noncrossing = false;
-          } else {
-            uncrossableVertices.insert(curVertex);
           }
 
           curVertex = previouses[curVertex->index()];
@@ -583,6 +578,9 @@ void ACD::computeUsefulPocketCuts() {
         destMap.insert(std::make_pair(*sourceKnotIt, newPocketCut));
       } //end-for destKnotIt
     } //end-for sourceKnotIt
+
+    // Iteratively find the minimum weight bipartite matching, removing crossing cuts each step
+    // Run the Hungarian algorithm
   } //end-foreach pocket
 }
 
@@ -620,8 +618,16 @@ double ACD::calculateCurvature(const Vertex *vertexA, const Vertex *vertexB) {
     }
   }
 
-  // Get the respective half edge
-  
+  // Get the respective edge
+  MIntArray connectedEdges;
+  int prevIndex; // not used
+  vertexIt_.setIndex(vertexA->index(), prevIndex);
+  vertexIt_.getConnectedEdges(connectedEdges);
+  for (unsigned int i = 0; i < connectedEdges.length(); ++i) {
+    edgeIt_.setIndex(connectedEdges[i], prevIndex);
+    MPxCommand::displayInfo("Indices for an edge connected to " + MZH::toS(vertexA->index()) +
+      ": " + MZH::toS(edgeIt_.index(0)) + ", " + MZH::toS(edgeIt_.index(1)));
+  }
 
   // Store the edge curvature
   return 0.0;

@@ -4,6 +4,8 @@
 #include <maya/MFnMesh.h>
 #include <maya/MFnNurbsCurve.h>
 #include <maya/MGlobal.h>
+#include <maya/MItMeshEdge.h>
+#include <maya/MItMeshPolygon.h>
 #include <maya/MItMeshVertex.h>
 #include <maya/MItSelectionList.h>
 
@@ -85,6 +87,10 @@ MSyntax ACDCmd::newSyntax() {
 }
 
 void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
+  MItMeshEdge edgeIt(dagPath, MObject::kNullObj, status);
+  if (MZH::hasError(*status, "Failed to get edge iterator")) return;
+  MItMeshPolygon faceIt(dagPath, MObject::kNullObj, status);
+  if (MZH::hasError(*status, "Failed to get face iterator")) return;
   MItMeshVertex vertexIt(dagPath, MObject::kNullObj, status);
   if (MZH::hasError(*status, "Failed to get vertex iterator")) return;
   if (vertexIt.isDone()) {
@@ -92,7 +98,7 @@ void ACDCmd::runACD(MDagPath dagPath, MStatus *status) {
     return;
   }
 
-  ACD acd(vertexIt, concavityTolerance_, douglasPeuckerThreshold_, status);
+  ACD acd(edgeIt, faceIt, vertexIt, concavityTolerance_, douglasPeuckerThreshold_, status);
   MZH::hasError(*status, "ACD algorithm failed");
 
   MStatus displayOptionsStatus;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <maya/MItMeshEdge.h>
+#include <maya/MItMeshPolygon.h>
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
@@ -29,8 +31,12 @@ typedef std::unordered_map<const Vertex *, std::unordered_map<const Vertex *, st
 
 class ACD {
 public:
-  ACD(MItMeshVertex &vertexIt, double concavityTolerance, double douglasPeuckerThreshold, MStatus *status = nullptr);
-  ACD(MItMeshVertex &vertexIt, double concavityTolerance, double clusteringThreshold, double douglasPeuckerThreshold, MStatus *status = nullptr);
+  ACD(MItMeshEdge &edgeIt, MItMeshPolygon &faceIt, MItMeshVertex &vertexIt,
+    double concavityTolerance, double douglasPeuckerThreshold,
+    MStatus *status = nullptr);
+  ACD(MItMeshEdge &edgeIt, MItMeshPolygon &faceIt, MItMeshVertex &vertexIt,
+    double concavityTolerance, double clusteringThreshold, double douglasPeuckerThreshold,
+    MStatus *status = nullptr);
 
   double averageConcavity();
   std::vector<double> &concavities();
@@ -42,15 +48,15 @@ public:
   std::vector<Face *> &vertexBridges();
 
 protected:
-  void constructor(MItMeshVertex &vertexIt);
+  void constructor();
   void getHullVertices();
-  void getNeighbors(MItMeshVertex &vertexIt);
+  void getNeighbors();
   void projectHullEdges();
   void matchPointsToBridge();
   void calculateConcavities();
   void findKnots();
   std::vector<DPVertex> douglasPeucker(std::vector<DPVertex> &vertices);
-  void computeUsefulPocketCuts();
+  void computePocketCuts();
   double weighPath(const std::vector<const Vertex *>& path);
   double calculateCurvature(const Vertex *vertexA, const Vertex *vertexB);
 
@@ -59,6 +65,11 @@ protected:
   double clusteringThreshold_;
   double douglasPeuckerThreshold_;
   double maxConcavity_;
+
+  // Mesh accessors
+  MItMeshEdge &edgeIt_;
+  MItMeshPolygon &faceIt_;
+  MItMeshVertex &vertexIt_;
 
   // Concavity by vertex ID
   std::vector<double> concavities_;

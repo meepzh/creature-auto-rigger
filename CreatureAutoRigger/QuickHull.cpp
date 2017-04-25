@@ -315,6 +315,7 @@ MStatus QuickHull::computeMinMax(Vertex *&v0, Vertex *&v1) {
     * std::max(std::abs(extremes[0][0]->point()[0]), std::abs(extremes[0][1]->point()[0]))
     * std::max(std::abs(extremes[1][0]->point()[1]), std::abs(extremes[1][1]->point()[1]))
     * std::max(std::abs(extremes[2][0]->point()[2]), std::abs(extremes[2][1]->point()[2]));
+  //tolerance_ = 0.05; // Emulate Lloyd's clustering
   MPxCommand::displayInfo("Tolerance: " + MZH::toS(tolerance_));
 
   // Check tolerance
