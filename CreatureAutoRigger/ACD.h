@@ -5,8 +5,6 @@
 #include <unordered_set>
 #include "QuickHull.h"
 
-typedef std::unordered_map<Vertex *, std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>>> pEdgeMap;
-
 struct DPVertex {
   DPVertex(const MPoint &point, Vertex *vertex) {
     this->point = point;
@@ -15,6 +13,19 @@ struct DPVertex {
   MPoint point;
   Vertex *vertex;
 };
+
+struct PocketCut {
+  PocketCut() {
+    noncrossing = true;
+    weight = 0.0;
+  }
+  bool noncrossing;
+  std::vector<const Vertex *> path;
+  double weight;
+};
+
+typedef std::unordered_map<Vertex *, std::unordered_map<Vertex *, std::shared_ptr<std::vector<Vertex *>>>> pEdgeMap;
+typedef std::unordered_map<const Vertex *, std::unordered_map<const Vertex *, std::shared_ptr<PocketCut>>> pathWeightMap;
 
 class ACD {
 public:
@@ -40,7 +51,8 @@ protected:
   void findKnots();
   std::vector<DPVertex> douglasPeucker(std::vector<DPVertex> &vertices);
   void computeUsefulPocketCuts();
-  void weighEdge();
+  double weighPath(const std::vector<const Vertex *>& path);
+  double calculateCurvature(const Vertex *vertexA, const Vertex *vertexB);
 
   double averageConcavity_;
   double concavityTolerance_;
@@ -50,6 +62,7 @@ protected:
 
   // Concavity by vertex ID
   std::vector<double> concavities_;
+  std::unordered_map<const Vertex *, std::unordered_map<const Vertex *, double>> curvatures_;
   // Vertices of the convex hull
   std::vector<Vertex *> hullVertices_;
   // Map of convex hull vertices to their convex hull vertex neighbors
@@ -58,6 +71,7 @@ protected:
   std::unordered_set<Vertex *> knots_;
   // Vertex neighbors by vertex ID
   std::vector<std::vector<Vertex *>> neighbors_;
+  pathWeightMap pocketCutMap_;
   // Map of (source vertex, (target vertex, vector path from source to target or the opposite))
   pEdgeMap projectedEdges_;
   // Completed QuickHull instance

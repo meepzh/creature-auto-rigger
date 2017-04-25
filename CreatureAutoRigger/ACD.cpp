@@ -171,7 +171,7 @@ void ACD::getNeighbors(MItMeshVertex &vertexIt) {
   }
 }
 
-// Project convex hull edges onto the target mesh using Dijkstra
+// Project convex hull edges onto the target mesh using Dijkstra's
 void ACD::projectHullEdges() {
   // For each hull vertex
   for (Vertex *source : hullVertices_) {
@@ -200,7 +200,7 @@ void ACD::projectHullEdges() {
     if (targets.empty()) return;
     
     for (Vertex *target : targets) {
-      // Init Dijkstra structures
+      // Init Dijkstra's algorithm structures
       std::vector<double> distances;
       std::vector<const Vertex *> previouses;
       distances.resize(vertices_->size(), std::numeric_limits<double>::infinity());
@@ -234,7 +234,7 @@ void ACD::projectHullEdges() {
         } //end-for
       } //end-while
 
-      // Extract paths to target
+      // Init vector path to target
       std::shared_ptr<std::vector<Vertex *>> projectedEdge = std::make_shared<std::vector<Vertex *>>();
       projectedEdge->push_back(target);
 
@@ -467,15 +467,162 @@ std::vector<DPVertex> ACD::douglasPeucker(std::vector<DPVertex> &vertices) {
 // Find non-crossing pocket cuts (intersecting paths) within a pocket
 // TODO: Handle cup-shaped pockets
 void ACD::computeUsefulPocketCuts() {
-  // Iterate per pocket
-  // Get all knots in the pocket
-  // Record all knots. Should not cross these
-  // Compute the connecting paths with minimum weight
-  // Record vertices in the path
-  // If encountered a saved vertex, indicates that all paths with this vertex cross.
-  // Finish the path in case it crosses later in the future
+  std::shared_ptr<std::vector<std::unique_ptr<Face>>> faces = quickHull_.faces();
+  std::vector<std::shared_ptr<PocketCut>> pocketCuts;
+
+  // For each pocket (via its corresponding bridge)
+  for (std::unique_ptr<Face> &face : *faces) {
+    std::shared_ptr<HalfEdge> faceEdge = face->edge();
+    std::shared_ptr<HalfEdge> curEdge = faceEdge;
+
+    std::vector<Vertex *> pocketKnots;
+    std::unordered_set<const Vertex *> uncrossableVertices;
+    std::unordered_map<const Vertex *, std::vector<std::shared_ptr<PocketCut>>> vertexToCutsMap;
+
+    // Get all knots for this pocket
+    do {
+      Vertex *vertex = curEdge->vertex();
+      if (knots_.find(vertex) != knots_.end()) {
+        // Save for easy iteration
+        // Knot vertices cannot be crossed
+        uncrossableVertices.insert(vertex);
+      }
+
+      curEdge = curEdge->next();
+    } while (curEdge != faceEdge);
+
+    // Compute all connecting paths with minimum weight using Dijkstra's
+    for (auto sourceKnotIt = pocketKnots.begin(); sourceKnotIt != pocketKnots.end(); ++sourceKnotIt) {
+      auto destKnotIt = sourceKnotIt;
+
+      for (++destKnotIt; destKnotIt != pocketKnots.end(); ++destKnotIt) {
+        // Init Dijkstra's algorithm structures
+        std::vector<double> weights;
+        std::vector<const Vertex *> previouses;
+        weights.resize(vertices_->size(), std::numeric_limits<double>::infinity());
+        previouses.resize(vertices_->size(), nullptr);
+
+        std::priority_queue<queuePair, std::vector<queuePair>, queuePairComparator> queue;
+
+        queue.push(std::make_pair(*sourceKnotIt, 0));
+        weights[(*sourceKnotIt)->index()] = 0;
+
+        // While there are vertices to process
+        while (!queue.empty()) {
+          const Vertex *closest = queue.top().first;
+          queue.pop();
+      
+          // Check if target. Then success!
+          if (closest == *destKnotIt) break;
+
+          double weight = weights[closest->index()];
+
+          // Generate a base path vector
+          std::vector<const Vertex *> basePath;
+          const Vertex *curVertex = closest;
+          basePath.push_back(nullptr); // Placeholder for the neighbor
+          basePath.push_back(curVertex);
+          while (curVertex != *sourceKnotIt) {
+            curVertex = previouses[curVertex->index()];
+            basePath.push_back(curVertex);
+          }
+
+          // Add vertex neighbors with the best weight
+          const std::vector<Vertex *> &neighbors = neighbors_[closest->index()];
+          for (const Vertex *neighbor : neighbors) {
+            std::vector<const Vertex *> neighborPath = basePath;
+            neighborPath[0] = neighbor;
+            double newWeight = weighPath(neighborPath);
+
+            if (newWeight < weights[neighbor->index()]) {
+              weights[neighbor->index()] = newWeight;
+              previouses[neighbor->index()] = closest;
+              queue.push(std::make_pair(neighbor, newWeight));
+            }
+          } //end-for
+        } //end-while !queue.empty()
+
+        // Create a new cut path
+        std::shared_ptr<PocketCut> newPocketCut = std::make_shared<PocketCut>();
+        pocketCuts.push_back(newPocketCut);
+        std::vector<const Vertex *> &cutPath = newPocketCut->path;
+        const Vertex *curVertex = *destKnotIt;
+        cutPath.push_back(curVertex);
+
+        // Save the path
+        while (curVertex != *sourceKnotIt) {
+          // Fail if can't find a path from dest to source
+          if (previouses[curVertex->index()] == nullptr) {
+            MPxCommand::displayError("Could not find cut path for vertex " + MZH::toS(curVertex->index())
+              + " to target " + MZH::toS((*destKnotIt)->index())
+              + " from source " + MZH::toS((*sourceKnotIt)->index()));
+            returnStatus_ = MS::kFailure;
+            return;
+          }
+
+          // Check and mark if the path intersects
+          if (uncrossableVertices.find(curVertex) != uncrossableVertices.end()) {
+            newPocketCut->noncrossing = false;
+          } else {
+            uncrossableVertices.insert(curVertex);
+          }
+
+          curVertex = previouses[curVertex->index()];
+          cutPath.push_back(curVertex);
+        }
+
+        // Save the weight
+        newPocketCut->weight = weighPath(newPocketCut->path);
+
+        // Save both copies 
+        pocketCutMap_.insert(std::make_pair(*sourceKnotIt, std::unordered_map<const Vertex *, std::shared_ptr<PocketCut>>()));
+        pocketCutMap_.insert(std::make_pair(*destKnotIt, std::unordered_map<const Vertex *, std::shared_ptr<PocketCut>>()));
+        auto &sourceMap = pocketCutMap_.at(*sourceKnotIt);
+        auto &destMap = pocketCutMap_.at(*destKnotIt);
+        sourceMap.insert(std::make_pair(*destKnotIt, newPocketCut));
+        destMap.insert(std::make_pair(*sourceKnotIt, newPocketCut));
+      } //end-for destKnotIt
+    } //end-for sourceKnotIt
+  } //end-foreach pocket
 }
 
-void ACD::weighEdge() {
+double ACD::weighPath(const std::vector<const Vertex *>& path) {
+  // Average the concavity of all vertices in the path
+  double averageConcavity = 0.0;
+  for (const Vertex *vertex : path) {
+    averageConcavity += concavities_[vertex->index()];
+  }
+  averageConcavity /= path.size();
 
+  // Sum the curvature of the edges in the path
+  double totalCurvature = 0.0;
+  for (size_t pathIndex = 0; pathIndex < path.size() - 1; ++pathIndex) {
+    totalCurvature += calculateCurvature(path[pathIndex], path[pathIndex + 1]);
+  }
+
+  // Validate and return the result
+  if (MZH::fequal<double>(totalCurvature, 0, 0.000001)) {
+    MPxCommand::displayError("Divide-by-zero error while summing the curvature of the minimum weight path from " +
+      MZH::toS(path.front()->index()) + " to " + MZH::toS(path.back()->index()));
+    returnStatus_ = MS::kFailure;
+    return 0.0;
+  }
+  return averageConcavity / totalCurvature;
+}
+
+double ACD::calculateCurvature(const Vertex *vertexA, const Vertex *vertexB) {
+  // Check if previously calculated
+  auto vertexAIt = curvatures_.find(vertexA);
+  if (vertexAIt != curvatures_.end()) {
+    auto vertexBIt = (*vertexAIt).second.find(vertexB);
+    if (vertexBIt != (*vertexAIt).second.end()) {
+      return (*vertexBIt).second;
+    }
+  }
+
+  // Get the respective half edge
+  
+
+  // Store the edge curvature
+  return 0.0;
 }
