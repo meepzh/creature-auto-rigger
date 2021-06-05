@@ -21,8 +21,10 @@ namespace MZH {
     }
 
     if (maxDistanceSquared > epsilon * epsilon) {
-      MPointArray results1 = douglasPeucker(slice(points, 0, maxIndex + 1), epsilon);
-      MPointArray results2 = douglasPeucker(slice(points, maxIndex, points.length()), epsilon);
+      MPointArray slice1 = slice(points, 0, maxIndex + 1);
+      MPointArray slice2 = slice(points, maxIndex, points.length());
+      MPointArray results1 = douglasPeucker(slice1, epsilon);
+      MPointArray results2 = douglasPeucker(slice2, epsilon);
       copy(results, results1);
       copy(results, results2);
     } else {
